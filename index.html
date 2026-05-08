@@ -134,6 +134,16 @@
     color: #fff;
     border-color: var(--accent);
   }
+  .btn-group button .sub {
+    display: block;
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--ink-soft);
+    margin-top: 2px;
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+  .btn-group button.active .sub { color: rgba(255,255,255,0.85); }
 
   /* Aggressiveness slider */
   .agg-row {
@@ -313,9 +323,9 @@
       <div class="field">
         <label>Setup rigidity</label>
         <div class="btn-group" id="rigid-group">
-          <button data-rigid="1" class="active">1 — Solid</button>
-          <button data-rigid="2">2 — Maybe</button>
-          <button data-rigid="3">3 — Not really</button>
+          <button data-rigid="1" class="active">1 — Solid<span class="sub">Clamped good in vise</span></button>
+          <button data-rigid="2">2 — Maybe<span class="sub">Light vise clamp</span></button>
+          <button data-rigid="3">3 — Not really<span class="sub">Other than vise</span></button>
         </div>
         <div class="hint">Sturdy vise, short tool stickout, machine in good tram? Pick 1. Long stickout, lightweight work-holding, or you're not sure? Pick 2 or 3 to scale things back.</div>
       </div>
