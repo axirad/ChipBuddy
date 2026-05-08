@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ChipBuddy — Friendly Feeds & Speeds for Machinists</title>
+<meta name="description" content="Conservative feeds, speeds, and DOC recommendations for trainee machinists. Aluminum milling and drilling. Free, no login.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E🛠️%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f6f7f8;
+    --panel: #fff;
+    --ink: #1f2933;
+    --ink-soft: #52606d;
+    --line: #cbd2d9;
+    --accent: #0b6e4f;       /* conservative-green */
+    --warn: #b65c00;
+    --danger: #b91c1c;
+    --hot: #e63946;
+    --shadow: 0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.06);
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  header {
+    padding: 24px 28px 16px;
+    background: #fff;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 {
+    margin: 0 0 4px;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  header p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  header .badge {
+    display: inline-block;
+    background: #e8f5ee;
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 6px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  main {
+    display: grid;
+    grid-template-columns: minmax(320px, 1fr) minmax(280px, 360px);
+    gap: 20px;
+    padding: 20px 24px 60px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  @media (max-width: 800px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--panel);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 18px 20px;
+  }
+  .panel h2 {
+    margin: 0 0 12px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+  }
+
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .field .hint {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+  input[type="number"], input[type="text"], select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: var(--sans);
+    background: #fff;
+  }
+  input[type="number"]:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+
+  /* Pill-button groups */
+  .btn-group {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .btn-group button {
+    flex: 1 1 auto;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  .btn-group button:hover { border-color: var(--ink-soft); }
+  .btn-group button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  /* Aggressiveness slider */
+  .agg-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  .agg-row button {
+    padding: 8px 4px;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    line-height: 1.15;
+  }
+  .agg-row button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .agg-row button[data-agg="1"].active { background: var(--accent); border-color: var(--accent); }
+  .agg-row button[data-agg="2"].active { background: #2e7c5b; border-color: #2e7c5b; }
+  .agg-row button[data-agg="3"].active { background: #b88600; border-color: #b88600; }
+  .agg-row button[data-agg="4"].active { background: var(--warn); border-color: var(--warn); }
+  .agg-row button[data-agg="5"].active { background: var(--hot); border-color: var(--hot); }
+  .agg-explain { font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
+
+  /* Results */
+  .results { position: sticky; top: 16px; }
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .result-row:last-child { border-bottom: none; }
+  .result-label { font-size: 12px; color: var(--ink-soft); font-weight: 500; }
+  .result-value {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: var(--mono);
+    letter-spacing: -0.01em;
+  }
+  .result-unit { font-size: 12px; color: var(--ink-soft); margin-left: 4px; font-family: var(--sans); font-weight: 500; }
+  .result-note {
+    font-size: 11px;
+    color: var(--warn);
+    margin-top: 2px;
+    width: 100%;
+    flex-basis: 100%;
+    text-align: right;
+  }
+
+  /* Safety footer */
+  .safety {
+    background: #fff8e6;
+    border: 1px solid #f0d896;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-top: 16px;
+    font-size: 12px;
+    color: #6b4f00;
+  }
+  .safety strong { color: #4a3700; }
+
+  .pro-warn {
+    background: #fde8e8;
+    border: 1px solid #f5b6b6;
+    color: #7a1a1a;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin-top: 6px;
+    display: none;
+  }
+  .pro-warn.show { display: block; }
+
+  .info {
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-style: italic;
+    padding: 8px 0;
+  }
+
+  /* Page footer (signoff + Slack handle) */
+  .page-footer {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 28px 48px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+  .page-footer p { margin: 0 0 10px; }
+  .page-footer .signoff {
+    font-style: italic;
+    line-height: 1.55;
+    color: var(--ink);
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    margin-top: 14px;
+  }
+  .slack-handle {
+    font-family: var(--mono);
+    background: #eef3f7;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.95em;
+    color: var(--ink);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ChipBuddy <span class="badge">v1 · aluminum</span></h1>
+  <p>Your friendly feeds &amp; speeds buddy. Conservative-by-default starting numbers — always verify by chip color, sound, and feel. These are starting points, not guarantees.</p>
+</header>
+
+<main>
+  <!-- ===== INPUTS ===== -->
+  <div>
+    <section class="panel">
+      <h2>Workpiece</h2>
+      <div class="field">
+        <label for="material">Material</label>
+        <select id="material">
+          <option value="aluminum" selected>Aluminum (6061)</option>
+          <option value="steel-soft"   disabled>Steel — Soft (1018, A36)        · v2</option>
+          <option value="steel-medium" disabled>Steel — Medium (4140, 1045)     · v2</option>
+          <option value="steel-hard"   disabled>Steel — Hard (4340 HT, tool)    · v2</option>
+          <option value="stainless"    disabled>Stainless (304, 316)            · v2</option>
+          <option value="copper"       disabled>Copper                          · v2</option>
+          <option value="brass"        disabled>Brass                           · v2</option>
+        </select>
+        <div class="hint">Other materials are coming — tables need verification before they go live. Today everything assumes 6061 aluminum.</div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top:16px;">
+      <h2>Tool</h2>
+      <div class="field">
+        <label for="dia">Diameter (in)</label>
+        <input type="number" id="dia" step="0.0625" min="0.015" value="0.25">
+        <div class="hint">Common: 0.0625, 0.125, 0.25, 0.375, 0.5, 0.75</div>
+      </div>
+      <div class="field">
+        <label>Flutes</label>
+        <div class="btn-group" id="flutes-group">
+          <button data-flutes="1">1</button>
+          <button data-flutes="2">2</button>
+          <button data-flutes="3">3</button>
+          <button data-flutes="4" class="active">4</button>
+          <button data-flutes="5">5</button>
+          <button data-flutes="6">6</button>
+          <button data-flutes="7">7</button>
+          <button data-flutes="8">8</button>
+        </div>
+        <div class="hint" id="flutes-hint">Pocket / Adaptive: 2–3 flutes preferred for chip evac; 4 OK for shallow. Facing &amp; Contour: 4–8 flutes give better finish.</div>
+      </div>
+      <div class="field">
+        <label>Tool material</label>
+        <div class="btn-group" id="toolmat-group">
+          <button data-toolmat="carbide" class="active">Carbide</button>
+          <button data-toolmat="hss">HSS</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="flute-len">Flute length (in)</label>
+        <input type="number" id="flute-len" step="0.05" min="0.05" value="0.75">
+        <div class="hint">Caps the maximum axial DOC the tool can reach.</div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top:16px;">
+      <h2>Setup &amp; Machine</h2>
+      <div class="field">
+        <label>Setup rigidity</label>
+        <div class="btn-group" id="rigid-group">
+          <button data-rigid="1" class="active">1 — Solid</button>
+          <button data-rigid="2">2 — Maybe</button>
+          <button data-rigid="3">3 — Not really</button>
+        </div>
+        <div class="hint">Tramp on the table? Long stickout? Choose 2 or 3 to scale things back.</div>
+      </div>
+      <div class="field">
+        <label for="rpm-max-machine">Machine max RPM</label>
+        <input type="number" id="rpm-max-machine" step="500" min="1000" value="7500">
+        <div class="hint">Hard ceiling — recommendations never exceed this.</div>
+      </div>
+      <div class="field">
+        <label for="rpm-cap-op">Operation RPM cap</label>
+        <input type="number" id="rpm-cap-op" step="500" min="500" value="6000">
+        <div class="hint" id="rpm-cap-hint">Auto-suggested. Tools ≥ 1/8" cap at 6000; under 1/16" or engraving allow up to machine max.</div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top:16px;">
+      <h2>Operation</h2>
+      <div class="field">
+        <label>Cut type</label>
+        <div class="btn-group" id="cuttype-group">
+          <button data-cuttype="pocket" class="active">Pocket</button>
+          <button data-cuttype="facing">Facing</button>
+          <button data-cuttype="contour">Contour</button>
+          <button data-cuttype="drilling">Drilling</button>
+        </div>
+        <div class="hint" id="cuttype-hint">Pocket / Adaptive: heavy chip removal. Facing: skim the top flat. Contour: finish the wall around a part. Drilling: peck cycle (G73 chip-break + G83 full-retract).</div>
+      </div>
+      <div class="field">
+        <label>Aggressiveness</label>
+        <div class="agg-row" id="agg-row">
+          <button data-agg="1" class="active">Conservative</button>
+          <button data-agg="2">Semi-Cons.</button>
+          <button data-agg="3">Somewhat<br>Aggressive</button>
+          <button data-agg="4">Aggressive</button>
+          <button data-agg="5">Pro</button>
+        </div>
+        <div class="agg-explain" id="agg-explain">Conservative: lower SFM, modest DOC, lots of margin. Best for new setups, unfamiliar tools, listening to your machine.</div>
+        <div class="pro-warn" id="pro-warn"><strong>Pro mode:</strong> assumes a rigid machine, sharp tool, known work-holding, and chip evacuation. Verify on a test cut.</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== RESULTS ===== -->
+  <div>
+    <section class="panel results">
+      <h2>Recommended starting point</h2>
+
+      <div class="result-row">
+        <div>
+          <div class="result-label">Spindle</div>
+          <div id="rpm-note" class="info" style="display:none"></div>
+        </div>
+        <div><span class="result-value" id="r-rpm">—</span><span class="result-unit">RPM</span></div>
+      </div>
+
+      <div class="result-row">
+        <div class="result-label">Cut feed</div>
+        <div><span class="result-value" id="r-feed">—</span><span class="result-unit">IPM</span></div>
+      </div>
+
+      <div class="result-row" id="row-plunge">
+        <div class="result-label">Plunge feed</div>
+        <div><span class="result-value" id="r-plunge">—</span><span class="result-unit">IPM</span></div>
+      </div>
+
+      <!-- Milling-only: axial + radial DOC -->
+      <div class="result-row" id="row-doc-axial">
+        <div class="result-label">Axial DOC<br><span style="font-weight:400;">(max stepdown)</span></div>
+        <div><span class="result-value" id="r-doc-axial">—</span><span class="result-unit">in</span></div>
+        <div class="result-note flute-rule" id="flute-rule" style="display:none; text-align:left; color:var(--danger); font-weight:600;">
+          ⚠ DOC exceeds 1× tool diameter — switch to a <strong>2 or 3 flute</strong> endmill so chips can evacuate. 4+ flutes will pack and break the tool.
+        </div>
+      </div>
+
+      <div class="result-row" id="row-doc-radial">
+        <div class="result-label">Radial DOC<br><span style="font-weight:400;" id="r-doc-radial-label">(optimal load)</span></div>
+        <div><span class="result-value" id="r-doc-radial">—</span><span class="result-unit">in</span></div>
+      </div>
+
+      <!-- Drilling-only: peck pattern (G73 chip-break + G83 full-retract) -->
+      <div class="result-row" id="row-peck" style="display:none;">
+        <div class="result-label">Chip-break peck<br><span style="font-weight:400;">(forward each peck)</span></div>
+        <div><span class="result-value" id="r-peck">—</span><span class="result-unit">in</span></div>
+      </div>
+      <div class="result-row" id="row-peck-retract" style="display:none;">
+        <div class="result-label">Chip-break retract<br><span style="font-weight:400;">(snap chip)</span></div>
+        <div><span class="result-value" id="r-peck-retract">—</span><span class="result-unit">in</span></div>
+      </div>
+      <div class="result-row" id="row-full-retract" style="display:none;">
+        <div class="result-label">Full retract every<br><span style="font-weight:400;">(clear chips)</span></div>
+        <div><span class="result-value" id="r-full-retract">—</span><span class="result-unit">in</span></div>
+      </div>
+
+      <div class="result-row">
+        <div class="result-label">SFM<br><span style="font-weight:400;">(surface speed)</span></div>
+        <div><span class="result-value" id="r-sfm">—</span><span class="result-unit">ft/min</span></div>
+      </div>
+
+      <div class="result-row">
+        <div class="result-label">Chip load<br><span style="font-weight:400;">(per tooth)</span></div>
+        <div><span class="result-value" id="r-ipt">—</span><span class="result-unit">in</span></div>
+      </div>
+
+      <div class="safety">
+        <strong>Listen to the spindle.</strong> Smooth hum, no chatter or squeal = good. If the setup feels off, recompute conservatively.<br>
+        <strong>For Aluminum:</strong> bright silver chips curling away = good; chips welding to the flutes or packing in a pocket = stop, more lube/coolant or back the feed off.<br>
+        <strong>For Steel:</strong> blue chips curling away = good; brown/black chips = stop, you're burning the tool.
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="page-footer">
+  <p><strong>For questions:</strong> Message <span class="slack-handle">@axiradthad</span> on i3 Detroit Slack.</p>
+  <p class="signoff">I've had great pleasure over the last 10 years of training all experience level of users to bring their creations to life in this zone and from that experience created this tool. Have a blast, stay curious, have fun and of course be safe&nbsp;:)</p>
+</footer>
+
+<script>
+"use strict";
+
+// ============================================================================
+// LOOKUP TABLES — verified-conservative starting points
+// All ranges are [agg=1 conservative ... agg=5 pro]
+// ============================================================================
+
+// Surface speed (SFM) for aluminum 6061 — MILLING ops (pocket/facing/contour)
+const SFM_TABLE = {
+  carbide: [600,  900, 1100, 1300, 1500],
+  hss:     [150,  200,  250,  300,  400],
+};
+
+// Chip load (IPT) at 1/4" reference diameter, scales with diameter via IPT_SCALE
+const IPT_AT_QUARTER = {
+  carbide: [0.0010, 0.0015, 0.0020, 0.0028, 0.0040],
+  hss:     [0.0008, 0.0012, 0.0017, 0.0022, 0.0028],
+};
+
+// DRILLING-specific tables. Drilling SFM is much lower than milling because
+// drills are fully engaged radially and have center-cutting geometry that
+// doesn't tolerate high surface speed. Thad's house default = 90 SFM (carbide
+// in aluminum) anchors the Conservative slot.
+const SFM_TABLE_DRILL = {
+  carbide: [ 90, 130, 170, 220, 280],   // [agg=1..5]; Thad's 90 = Conservative
+  hss:     [ 60,  80, 110, 140, 180],
+};
+const IPT_AT_QUARTER_DRILL = {
+  carbide: [0.0015, 0.0020, 0.0030, 0.0040, 0.0050],
+  hss:     [0.0012, 0.0017, 0.0022, 0.0028, 0.0035],
+};
+
+// Drilling peck pattern — Thad's house defaults (G73 chip-break + G83 full-retract).
+// These are absolute (don't scale with drill dia); they're conservative for any
+// drill size from 1/16" up and produce reliable chip evac in aluminum.
+const DRILL_PECK = {
+  chipBreakPeck:       0.015,   // forward distance per peck
+  chipBreakRetract:    0.004,   // tiny retract to snap chip (G73)
+  fullRetractInterval: 0.075,   // every 5 pecks, clear out completely (G83)
+};
+
+// IPT scales sub-linearly with tool dia. Empirical: IPT(d) ≈ IPT(0.25) * (d/0.25)^0.6
+// (Smaller tools take proportionally smaller chip loads to avoid breakage.)
+function iptForDia(iptAtQuarter, diaIn) {
+  if (diaIn <= 0) return 0;
+  const scale = Math.pow(diaIn / 0.25, 0.6);
+  return iptAtQuarter * scale;
+}
+
+// Per-cut-type DOC tables. Indexed by aggressiveness 1..5.
+//   axialMult / radialMult are × tool diameter
+//   axialAbs is absolute inches (for shallow ops like Facing where
+//     scaling with tool dia would be wrong — a 2" face mill doesn't
+//     suddenly want a 2" deep cut)
+//   fluteRuleApplies = whether the "4+ flutes + deep DOC = chip jam" rule fires
+const CUT_TYPE = {
+  pocket: {
+    label: "optimal load",
+    axialMult:  [0.5,   0.75,  1.0,   1.25,  1.5 ],   // × dia
+    radialMult: [0.08,  0.12,  0.16,  0.20,  0.25],   // × dia
+    fluteRuleApplies: true,
+  },
+  facing: {
+    label: "stepover",
+    axialAbs:   [0.010, 0.020, 0.030, 0.050, 0.080],  // absolute in (doubled from [.005..040] per Thad 2026-05-08)
+    radialMult: [0.50,  0.60,  0.70,  0.80,  0.90],   // × dia
+    fluteRuleApplies: false,   // facing is always shallow → 4-8 flute fine
+  },
+  contour: {
+    label: "stepover",
+    axialMult:  [0.5,   0.75,  1.0,   1.25,  1.5 ],   // × dia (same as pocket)
+    radialMult: [0.05,  0.08,  0.12,  0.15,  0.20],   // × dia (small — wall finish)
+    fluteRuleApplies: false,   // radial is small → chips evacuate easily
+  },
+  drilling: {
+    isDrilling: true,    // signals calc/render to use DRILL tables and peck outputs
+    fluteRuleApplies: false,
+  },
+};
+
+// Setup rigidity penalty: scale [feed, doc] by these factors
+const RIGID_PENALTY = {
+  1: { feed: 1.00, doc: 1.00 },
+  2: { feed: 0.85, doc: 0.75 },
+  3: { feed: 0.65, doc: 0.50 },
+};
+
+const AGG_LABELS = ["Conservative", "Semi-Conservative", "Somewhat Aggressive", "Aggressive", "Pro"];
+const AGG_EXPLAIN = [
+  "Conservative: lower SFM, modest DOC, lots of margin. Best for new setups, unfamiliar tools, listening to your machine.",
+  "Semi-Conservative: a little faster. Good once you trust the setup but still want margin.",
+  "Somewhat Aggressive: middle of recommended range. Confident in tool, work-holding, and chip evacuation.",
+  "Aggressive: pushing for productivity. Sharp tool required, rigid setup, eyes on the cut.",
+  "Pro: full chip-load potential. Assumes everything is dialed in. Verify on a test cut first."
+];
+
+// ============================================================================
+// STATE
+// ============================================================================
+const state = {
+  material: "aluminum",   // locked in v1 — dropdown shows future options
+  diaIn: 0.25,
+  flutes: 4,
+  toolMat: "carbide",
+  fluteLen: 0.75,
+  rigidity: 1,
+  rpmMaxMachine: 7500,
+  rpmCapOp: 6000,
+  agg: 1,
+  cutType: "pocket",
+  rpmCapManuallySet: false,
+};
+
+// ============================================================================
+// CALCULATION
+// ============================================================================
+function autoSuggestRpmCap() {
+  // < 1/16" (0.0625): allow up to machine max
+  // 1/16" to 1/8": linear interpolation between machine max and 6000
+  // ≥ 1/8" (0.125): cap at 6000
+  if (state.diaIn < 0.0625) return state.rpmMaxMachine;
+  if (state.diaIn < 0.125) {
+    const t = (state.diaIn - 0.0625) / (0.125 - 0.0625);
+    return Math.round((state.rpmMaxMachine * (1 - t) + 6000 * t) / 100) * 100;
+  }
+  return Math.min(6000, state.rpmMaxMachine);
+}
+
+function calc() {
+  const aggIdx = state.agg - 1;
+  const ct = CUT_TYPE[state.cutType];
+  const isDrill = !!ct.isDrilling;
+
+  // Pick the right SFM/IPT tables (drilling uses much lower SFM than milling)
+  const sfmTable = isDrill ? SFM_TABLE_DRILL : SFM_TABLE;
+  const iptTable = isDrill ? IPT_AT_QUARTER_DRILL : IPT_AT_QUARTER;
+  const sfm = sfmTable[state.toolMat][aggIdx];
+  const iptRef = iptTable[state.toolMat][aggIdx];
+  const ipt = iptForDia(iptRef, state.diaIn);
+
+  // Spindle speed
+  const rpmIdeal = sfm * 12 / (Math.PI * state.diaIn);
+  const rpmCap = Math.min(state.rpmCapOp, state.rpmMaxMachine);
+  const rpm = Math.min(rpmIdeal, rpmCap);
+  const rpmCapped = rpmIdeal > rpmCap;
+
+  // Feed (for milling: cut feed / for drilling: vertical drill feed). Same formula.
+  const feedRaw = ipt * state.flutes * rpm;
+  const feed = feedRaw * RIGID_PENALTY[state.rigidity].feed;
+
+  // Plunge — only meaningful for milling
+  const plunge = feed * 0.40;
+
+  // Effective SFM (might be lower than the table's SFM if RPM was capped)
+  const sfmEffective = Math.PI * state.diaIn * rpm / 12;
+
+  // ---- Drilling early return ----
+  if (isDrill) {
+    return {
+      isDrill: true,
+      rpm: Math.round(rpm / 50) * 50,
+      rpmIdeal: Math.round(rpmIdeal),
+      rpmCapped, rpmCap,
+      sfm: Math.round(sfmEffective),
+      sfmIdeal: sfm,
+      ipt: ipt,
+      feed: Math.round(feed * 10) / 10,
+      chipBreakPeck:       DRILL_PECK.chipBreakPeck,
+      chipBreakRetract:    DRILL_PECK.chipBreakRetract,
+      fullRetractInterval: DRILL_PECK.fullRetractInterval,
+    };
+  }
+
+  // ---- Milling DOC (cut-type specific) ----
+  const rigidDoc = RIGID_PENALTY[state.rigidity].doc;
+  let docAxial;
+  if (ct.axialAbs) {
+    docAxial = ct.axialAbs[aggIdx] * rigidDoc;        // Facing
+  } else {
+    docAxial = state.diaIn * ct.axialMult[aggIdx] * rigidDoc;  // Pocket / Contour
+  }
+  const docAxialCappedByFlute = docAxial > state.fluteLen;
+  if (docAxialCappedByFlute) docAxial = state.fluteLen;
+
+  const docRadial = state.diaIn * ct.radialMult[aggIdx] * rigidDoc;
+
+  return {
+    isDrill: false,
+    rpm: Math.round(rpm / 50) * 50,
+    rpmIdeal: Math.round(rpmIdeal),
+    rpmCapped, rpmCap,
+    sfm: Math.round(sfmEffective),
+    sfmIdeal: sfm,
+    ipt: ipt,
+    feed: Math.round(feed * 10) / 10,
+    plunge: Math.round(plunge * 10) / 10,
+    docAxial: Math.round(docAxial * 1000) / 1000,
+    docAxialCappedByFlute,
+    docRadial: Math.round(docRadial * 1000) / 1000,
+  };
+}
+
+// ============================================================================
+// RENDER
+// ============================================================================
+function fmt(num, places) {
+  if (!isFinite(num)) return "—";
+  return num.toFixed(places);
+}
+
+function render() {
+  const r = calc();
+
+  // Show/hide milling vs drilling result rows
+  const showDrill = !!r.isDrill;
+  document.getElementById("row-plunge").style.display      = showDrill ? "none" : "";
+  document.getElementById("row-doc-axial").style.display   = showDrill ? "none" : "";
+  document.getElementById("row-doc-radial").style.display  = showDrill ? "none" : "";
+  document.getElementById("row-peck").style.display          = showDrill ? "" : "none";
+  document.getElementById("row-peck-retract").style.display  = showDrill ? "" : "none";
+  document.getElementById("row-full-retract").style.display  = showDrill ? "" : "none";
+
+  document.getElementById("r-rpm").textContent = r.rpm.toLocaleString();
+  document.getElementById("r-feed").textContent = fmt(r.feed, 1);
+  document.getElementById("r-sfm").textContent = r.sfm;
+  document.getElementById("r-ipt").textContent = fmt(r.ipt, 4);
+
+  if (showDrill) {
+    document.getElementById("r-peck").textContent          = fmt(r.chipBreakPeck, 3);
+    document.getElementById("r-peck-retract").textContent  = fmt(r.chipBreakRetract, 3);
+    document.getElementById("r-full-retract").textContent  = fmt(r.fullRetractInterval, 3);
+  } else {
+    document.getElementById("r-plunge").textContent     = fmt(r.plunge, 1);
+    document.getElementById("r-doc-axial").textContent  = fmt(r.docAxial, 3);
+    document.getElementById("r-doc-radial").textContent = fmt(r.docRadial, 3);
+  }
+
+  // RPM cap notice
+  const rpmNote = document.getElementById("rpm-note");
+  if (r.rpmCapped) {
+    rpmNote.style.display = "block";
+    rpmNote.style.color = "var(--warn)";
+    rpmNote.textContent = `Capped from ideal ${r.rpmIdeal.toLocaleString()} RPM (${r.sfmIdeal} SFM target). Effective SFM ${r.sfm}.`;
+  } else {
+    rpmNote.style.display = "none";
+  }
+
+  // Aggressiveness explanation
+  document.getElementById("agg-explain").textContent = AGG_EXPLAIN[state.agg - 1];
+  document.getElementById("pro-warn").classList.toggle("show", state.agg === 5);
+
+  // Update Radial DOC label (varies by cut type: "optimal load" vs "stepover")
+  const ct = CUT_TYPE[state.cutType];
+  const radialLabelEl = document.getElementById("r-doc-radial-label");
+  if (radialLabelEl && ct.label) radialLabelEl.textContent = `(${ct.label})`;
+
+  // Chip-evacuation rule: only applies where cut-type config says so (Pocket).
+  // Triggers when 4+ flutes AND axial DOC ≥ 1× tool dia.
+  const violatesFluteRule = !showDrill && ct.fluteRuleApplies && state.flutes >= 4 && r.docAxial >= state.diaIn;
+  document.getElementById("flute-rule").style.display = violatesFluteRule ? "block" : "none";
+
+  // Auto-suggest RPM cap on dia change (unless user manually edited)
+  if (!state.rpmCapManuallySet) {
+    state.rpmCapOp = autoSuggestRpmCap();
+    document.getElementById("rpm-cap-op").value = state.rpmCapOp;
+  }
+}
+
+// ============================================================================
+// EVENT WIRING
+// ============================================================================
+function setupBtnGroup(groupId, dataAttr, stateKey, isNumeric) {
+  const group = document.getElementById(groupId);
+  group.addEventListener("click", (e) => {
+    if (e.target.tagName !== "BUTTON" || e.target.disabled) return;
+    [...group.children].forEach(b => b.classList.remove("active"));
+    e.target.classList.add("active");
+    const v = e.target.getAttribute(dataAttr);
+    state[stateKey] = isNumeric ? Number(v) : v;
+    render();
+  });
+}
+
+setupBtnGroup("flutes-group",  "data-flutes",  "flutes",   true);
+setupBtnGroup("toolmat-group", "data-toolmat", "toolMat",  false);
+setupBtnGroup("rigid-group",   "data-rigid",   "rigidity", true);
+setupBtnGroup("cuttype-group", "data-cuttype", "cutType",  false);
+setupBtnGroup("agg-row",       "data-agg",     "agg",      true);
+
+document.getElementById("material").addEventListener("change", e => {
+  state.material = e.target.value;
+  // No table-switching needed today — only aluminum is selectable. When v2
+  // adds steel/SS/copper/brass, this is where the SFM/IPT tables get re-keyed
+  // by state.material before render(). The state field is plumbed now so the
+  // calc() refactor is one-line.
+  render();
+});
+
+document.getElementById("dia").addEventListener("input", e => {
+  const v = Number(e.target.value);
+  if (v > 0) { state.diaIn = v; render(); }
+});
+document.getElementById("flute-len").addEventListener("input", e => {
+  const v = Number(e.target.value);
+  if (v > 0) { state.fluteLen = v; render(); }
+});
+document.getElementById("rpm-max-machine").addEventListener("input", e => {
+  const v = Number(e.target.value);
+  if (v > 0) { state.rpmMaxMachine = v; render(); }
+});
+document.getElementById("rpm-cap-op").addEventListener("input", e => {
+  const v = Number(e.target.value);
+  if (v > 0) { state.rpmCapOp = v; state.rpmCapManuallySet = true; render(); }
+});
+// Reset auto-suggest if the user clears the field and tabs away
+document.getElementById("rpm-cap-op").addEventListener("blur", e => {
+  if (!e.target.value || Number(e.target.value) <= 0) {
+    state.rpmCapManuallySet = false;
+    state.rpmCapOp = autoSuggestRpmCap();
+    e.target.value = state.rpmCapOp;
+    render();
+  }
+});
+
+render();
+</script>
+
+</body>
+</html>
