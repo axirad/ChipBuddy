@@ -431,7 +431,10 @@
       </div>
 
       <div class="result-row">
-        <div class="result-label">Chip load<br><span style="font-weight:400;">(per tooth)</span></div>
+        <div class="result-label">
+          <span id="r-chipload-main">Chip load</span><br>
+          <span style="font-weight:400;" id="r-chipload-sub">(per tooth)</span>
+        </div>
         <div><span class="result-value" id="r-ipt">—</span><span class="result-unit">in</span></div>
       </div>
 
@@ -477,10 +480,33 @@ const SFM_TABLE_DRILL = {
   carbide: [ 90, 130, 170, 220, 280],   // [agg=1..5]; Thad's 90 = Conservative
   hss:     [ 60,  80, 110, 140, 180],
 };
-const IPT_AT_QUARTER_DRILL = {
-  carbide: [0.0015, 0.0020, 0.0030, 0.0040, 0.0050],
-  hss:     [0.0012, 0.0017, 0.0022, 0.0028, 0.0035],
-};
+
+// DRILLING uses IPR (Inches Per Revolution) as the primary feed parameter,
+// matching Fusion's CAM convention and machinist standard practice. Feed (IPM)
+// = IPR × RPM. NB: do NOT multiply by flutes here — IPR already accounts for
+// per-revolution displacement regardless of flute count.
+//
+// Thad's house IPR defaults (Conservative preset, carbide drill in aluminum):
+//   ≤ 1/8" dia       → 0.001 IPR
+//   1/8" < d ≤ 3/8"  → 0.002 IPR
+//   > 3/8"           → 0.004 IPR
+//
+// Aggressiveness scales these up. agg=3 (Somewhat Aggressive) lands roughly
+// at general-purpose IPR per the Google search Thad quoted (0.004 IPR for
+// 1/4" drill); agg=5 (Pro) reaches the upper edge of that range (~0.008).
+// HSS gets 70% of the carbide value (softer cutting edge, lighter chip load).
+const DRILL_IPR_AGG_SCALE = [1.0, 1.5, 2.0, 3.0, 4.0];   // [agg=1..5]
+const DRILL_IPR_HSS_FACTOR = 0.7;
+
+function drillIPR(diaIn, aggIdx, toolMat) {
+  let base;
+  if      (diaIn <= 0.125) base = 0.001;
+  else if (diaIn <= 0.375) base = 0.002;
+  else                     base = 0.004;
+  const agg = DRILL_IPR_AGG_SCALE[aggIdx];
+  const mat = (toolMat === 'hss') ? DRILL_IPR_HSS_FACTOR : 1.0;
+  return base * agg * mat;
+}
 
 // Drilling peck pattern — Thad's house defaults (G73 chip-break + G83 full-retract).
 // These are absolute (don't scale with drill dia); they're conservative for any
@@ -583,31 +609,24 @@ function calc() {
   const ct = CUT_TYPE[state.cutType];
   const isDrill = !!ct.isDrilling;
 
-  // Pick the right SFM/IPT tables (drilling uses much lower SFM than milling)
+  // SFM table (drilling uses much lower values than milling)
   const sfmTable = isDrill ? SFM_TABLE_DRILL : SFM_TABLE;
-  const iptTable = isDrill ? IPT_AT_QUARTER_DRILL : IPT_AT_QUARTER;
   const sfm = sfmTable[state.toolMat][aggIdx];
-  const iptRef = iptTable[state.toolMat][aggIdx];
-  const ipt = iptForDia(iptRef, state.diaIn);
 
-  // Spindle speed
+  // Spindle speed (same formula for both modes)
   const rpmIdeal = sfm * 12 / (Math.PI * state.diaIn);
   const rpmCap = Math.min(state.rpmCapOp, state.rpmMaxMachine);
   const rpm = Math.min(rpmIdeal, rpmCap);
   const rpmCapped = rpmIdeal > rpmCap;
 
-  // Feed (for milling: cut feed / for drilling: vertical drill feed). Same formula.
-  const feedRaw = ipt * state.flutes * rpm;
-  const feed = feedRaw * RIGID_PENALTY[state.rigidity].feed;
-
-  // Plunge — only meaningful for milling
-  const plunge = feed * 0.40;
-
   // Effective SFM (might be lower than the table's SFM if RPM was capped)
   const sfmEffective = Math.PI * state.diaIn * rpm / 12;
 
-  // ---- Drilling early return ----
+  // ---- Drilling: feed = IPR × RPM ----
   if (isDrill) {
+    const ipr = drillIPR(state.diaIn, aggIdx, state.toolMat);
+    const feedRaw = ipr * rpm;
+    const feed = feedRaw * RIGID_PENALTY[state.rigidity].feed;
     return {
       isDrill: true,
       rpm: Math.round(rpm / 50) * 50,
@@ -615,13 +634,20 @@ function calc() {
       rpmCapped, rpmCap,
       sfm: Math.round(sfmEffective),
       sfmIdeal: sfm,
-      ipt: ipt,
+      ipr: ipr,                          // primary drilling feed parameter
       feed: Math.round(feed * 10) / 10,
       chipBreakPeck:       DRILL_PECK.chipBreakPeck,
       chipBreakRetract:    DRILL_PECK.chipBreakRetract,
       fullRetractInterval: DRILL_PECK.fullRetractInterval,
     };
   }
+
+  // ---- Milling: feed = IPT × flutes × RPM ----
+  const iptRef = IPT_AT_QUARTER[state.toolMat][aggIdx];
+  const ipt = iptForDia(iptRef, state.diaIn);
+  const feedRaw = ipt * state.flutes * rpm;
+  const feed = feedRaw * RIGID_PENALTY[state.rigidity].feed;
+  const plunge = feed * 0.40;
 
   // ---- Milling DOC (cut-type specific) ----
   const rigidDoc = RIGID_PENALTY[state.rigidity].doc;
@@ -675,13 +701,19 @@ function render() {
   document.getElementById("r-rpm").textContent = r.rpm.toLocaleString();
   document.getElementById("r-feed").textContent = fmt(r.feed, 1);
   document.getElementById("r-sfm").textContent = r.sfm;
-  document.getElementById("r-ipt").textContent = fmt(r.ipt, 4);
 
+  // Chip-load row swaps label + value: drilling uses IPR (per rev), milling uses IPT (per tooth)
   if (showDrill) {
+    document.getElementById("r-chipload-main").textContent = "Feed per rev";
+    document.getElementById("r-chipload-sub").textContent  = "(IPR — Fusion's primary)";
+    document.getElementById("r-ipt").textContent = fmt(r.ipr, 4);
     document.getElementById("r-peck").textContent          = fmt(r.chipBreakPeck, 3);
     document.getElementById("r-peck-retract").textContent  = fmt(r.chipBreakRetract, 3);
     document.getElementById("r-full-retract").textContent  = fmt(r.fullRetractInterval, 3);
   } else {
+    document.getElementById("r-chipload-main").textContent = "Chip load";
+    document.getElementById("r-chipload-sub").textContent  = "(per tooth)";
+    document.getElementById("r-ipt").textContent = fmt(r.ipt, 4);
     document.getElementById("r-plunge").textContent     = fmt(r.plunge, 1);
     document.getElementById("r-doc-axial").textContent  = fmt(r.docAxial, 3);
     document.getElementById("r-doc-radial").textContent = fmt(r.docRadial, 3);
