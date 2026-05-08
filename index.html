@@ -99,6 +99,11 @@
     color: var(--ink-soft);
     margin-top: 2px;
   }
+  .field .hint.warn {
+    color: var(--warn);
+    font-weight: 600;
+    margin-top: 6px;
+  }
   input[type="number"], input[type="text"], select {
     width: 100%;
     padding: 8px 10px;
@@ -323,11 +328,12 @@
       <div class="field">
         <label>Setup rigidity</label>
         <div class="btn-group" id="rigid-group">
-          <button data-rigid="1" class="active">1 — Solid<span class="sub">Clamped good in vise</span></button>
-          <button data-rigid="2">2 — Maybe<span class="sub">Light vise clamp</span></button>
-          <button data-rigid="3">3 — Not really<span class="sub">Other than vise</span></button>
+          <button data-rigid="1" class="active">1 — Solid<span class="sub">Clamped good in vise</span><span class="sub">Short tool stick out</span></button>
+          <button data-rigid="2">2 — Maybe<span class="sub">Light vise clamp</span><span class="sub">Longer tool stick out</span></button>
+          <button data-rigid="3">3 — Not really<span class="sub">Other than vise</span><span class="sub">Long tool stick out</span></button>
         </div>
-        <div class="hint">Sturdy vise, short tool stickout, machine in good tram? Pick 1. Long stickout, lightweight work-holding, or you're not sure? Pick 2 or 3 to scale things back.</div>
+        <div class="hint warn">Not sure? Pick 2 or 3 to scale things back.</div>
+        <div class="hint">Be sure to tram the vise and shortest tool stickout without crashing the spindle. Double/Triple check!</div>
       </div>
       <div class="field">
         <label for="rpm-max-machine">Machine max RPM</label>
