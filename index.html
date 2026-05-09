@@ -32,16 +32,14 @@
   }
 
   header {
-    padding: 16px 28px 14px;
+    padding: 16px 0 14px;
     background: #fff;
     border-bottom: 1px solid var(--line);
-    display: flex;
-    align-items: center;
-    gap: 18px;
   }
   header .header-text {
-    flex: 1;
-    min-width: 0;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px;        /* matches main's horizontal padding so logo aligns with content boxes */
   }
   .title-row {
     display: flex;
@@ -59,6 +57,7 @@
     position: relative;
     width: 84px;
     height: 91px;            /* matches 603x654 aspect (≈ 0.922) */
+    margin-left: 10px;       /* nudge right of content-box edge */
     border: 0;
     padding: 0;
     background: transparent;
@@ -81,12 +80,7 @@
   .logo-btn.playing img { display: none; }
   .logo-btn.playing video { display: block; }
   @media (max-width: 600px) {
-    header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 14px 18px 12px;
-    }
+    header { padding: 14px 0 12px; }
     .logo-btn { width: 96px; height: 104px; }
   }
   header .badge {
@@ -314,7 +308,7 @@
         <video id="logoVideo" src="ChipBuddyClip01.mp4" preload="none" playsinline></video>
       </button>
     </div>
-    <p>Your friendly feeds &amp; speeds buddy. Conservative-by-default starting numbers — always verify by chip color, sound, and feel. These are starting points, not guarantees.</p>
+    <p>Your friendly feeds &amp; speeds buddy for new CNC mill users to grow with. Conservative-by-default starting numbers — always verify by chip color, sound, and feel. These are starting points, not guarantees.</p>
   </div>
 </header>
 
