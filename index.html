@@ -449,6 +449,15 @@
     <section class="panel" style="margin-top:16px;">
       <h2>Setup</h2>
       <div class="field">
+        <label>Machine class</label>
+        <div class="btn-group" id="machine-group">
+          <button data-machine="light">Light<span class="sub">Benchtop ≤500 lb</span><span class="sub">(Sherline, X2, PM-25)</span></button>
+          <button data-machine="mid">Mid<span class="sub">RF45 / Tormach 770M</span><span class="sub">(≈500–2,000 lb)</span></button>
+          <button data-machine="heavy" class="active">Heavy<span class="sub">Haas VF / Doosan</span><span class="sub">full VMC (≥2,000 lb)</span></button>
+        </div>
+        <div class="hint">Heavier machines damp chatter and resist deflection — they tolerate more feed and DOC. Light machines need a derate.</div>
+      </div>
+      <div class="field">
         <label>Setup rigidity</label>
         <div class="btn-group" id="rigid-group">
           <button data-rigid="1" class="active">1 — Solid<span class="sub">Clamped good in vise</span><span class="sub">Short tool stick out</span></button>
@@ -702,6 +711,15 @@ const RIGID_PENALTY = {
   3: { feed: 0.65, doc: 0.50 },
 };
 
+// Machine class multiplier — applies to BOTH feed (via IPT/IPR base) AND DOC.
+// Heavy = baseline (1.0×). The existing SFM/IPT tables are calibrated to a
+// heavy VMC (i3 Detroit's Haas VF3); Mid + Light derate from there.
+const MACHINE_CLASS_MULT = {
+  heavy: 1.00,
+  mid:   0.75,
+  light: 0.50,
+};
+
 const AGG_LABELS = ["Conservative", "Semi-Conservative", "Somewhat Aggressive", "Aggressive", "Pro"];
 const AGG_EXPLAIN = [
   "Conservative: lower SFM, modest DOC, lots of margin. Best for new setups, unfamiliar tools, listening to your machine.",
@@ -725,6 +743,7 @@ const state = {
   rpmCapOp: 6000,
   agg: 1,
   cutType: "pocket",
+  machineClass: "heavy",
   rpmCapManuallySet: false,
   iptOverride: null,      // user-edited Feed per Tooth (milling) — null = use recommended
   iprOverride: null,      // user-edited Feed per Rev (drilling) — null = use recommended
@@ -777,9 +796,11 @@ function calc() {
   // Effective SFM (reflects whatever RPM is actually being used)
   const sfmEffective = Math.PI * state.diaIn * rpm / 12;
 
+  const mcMult = MACHINE_CLASS_MULT[state.machineClass];
+
   // ---- Drilling: feed = IPR × RPM ----
   if (isDrill) {
-    const iprRec = drillIPR(state.diaIn, aggIdx, state.toolMat);
+    const iprRec = drillIPR(state.diaIn, aggIdx, state.toolMat) * mcMult;
     const ipr = (state.iprOverride !== null) ? state.iprOverride : iprRec;
     const feedRaw = ipr * rpm;
     const feed = feedRaw * RIGID_PENALTY[state.rigidity].feed;
@@ -803,7 +824,7 @@ function calc() {
   }
 
   // ---- Milling: feed = IPT × flutes × RPM ----
-  const iptRef = IPT_AT_QUARTER[state.toolMat][aggIdx];
+  const iptRef = IPT_AT_QUARTER[state.toolMat][aggIdx] * mcMult;
   const iptRec = iptForDia(iptRef, state.diaIn);
   const ipt = (state.iptOverride !== null) ? state.iptOverride : iptRec;
   const feedRaw = ipt * state.flutes * rpm;
@@ -814,14 +835,14 @@ function calc() {
   const rigidDoc = RIGID_PENALTY[state.rigidity].doc;
   let docAxial;
   if (ct.axialAbs) {
-    docAxial = ct.axialAbs[aggIdx] * rigidDoc;        // Facing
+    docAxial = ct.axialAbs[aggIdx] * rigidDoc * mcMult;        // Facing
   } else {
-    docAxial = state.diaIn * ct.axialMult[aggIdx] * rigidDoc;  // Pocket / Contour
+    docAxial = state.diaIn * ct.axialMult[aggIdx] * rigidDoc * mcMult;  // Pocket / Contour
   }
   const docAxialCappedByFlute = docAxial > state.fluteLen;
   if (docAxialCappedByFlute) docAxial = state.fluteLen;
 
-  const docRadial = state.diaIn * ct.radialMult[aggIdx] * rigidDoc;
+  const docRadial = state.diaIn * ct.radialMult[aggIdx] * rigidDoc * mcMult;
 
   return {
     isDrill: false,
@@ -983,11 +1004,12 @@ function setupBtnGroup(groupId, dataAttr, stateKey, isNumeric) {
   });
 }
 
-setupBtnGroup("flutes-group",  "data-flutes",  "flutes",   true);
-setupBtnGroup("toolmat-group", "data-toolmat", "toolMat",  false);
-setupBtnGroup("rigid-group",   "data-rigid",   "rigidity", true);
-setupBtnGroup("cuttype-group", "data-cuttype", "cutType",  false);
-setupBtnGroup("agg-row",       "data-agg",     "agg",      true);
+setupBtnGroup("flutes-group",  "data-flutes",  "flutes",       true);
+setupBtnGroup("toolmat-group", "data-toolmat", "toolMat",      false);
+setupBtnGroup("rigid-group",   "data-rigid",   "rigidity",     true);
+setupBtnGroup("cuttype-group", "data-cuttype", "cutType",      false);
+setupBtnGroup("agg-row",       "data-agg",     "agg",          true);
+setupBtnGroup("machine-group", "data-machine", "machineClass", false);
 
 document.getElementById("material").addEventListener("change", e => {
   state.material = e.target.value;
