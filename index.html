@@ -32,9 +32,16 @@
   }
 
   header {
-    padding: 24px 28px 16px;
+    padding: 16px 28px 14px;
     background: #fff;
     border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  header .header-text {
+    flex: 1;
+    min-width: 0;
   }
   header h1 {
     margin: 0 0 4px;
@@ -46,6 +53,41 @@
     margin: 0;
     font-size: 13px;
     color: var(--ink-soft);
+  }
+  /* Click-to-play easter-egg logo */
+  .logo-btn {
+    position: relative;
+    width: 84px;
+    height: 91px;            /* matches 603x654 aspect (≈ 0.922) */
+    border: 0;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+    border-radius: 8px;
+  }
+  .logo-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+  .logo-btn img,
+  .logo-btn video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  .logo-btn video { display: none; }
+  .logo-btn.playing img { display: none; }
+  .logo-btn.playing video { display: block; }
+  @media (max-width: 600px) {
+    header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 14px 18px 12px;
+    }
+    .logo-btn { width: 96px; height: 104px; }
   }
   header .badge {
     display: inline-block;
@@ -264,9 +306,42 @@
 <body>
 
 <header>
-  <h1>ChipBuddy <span class="badge">v1 · aluminum</span></h1>
-  <p>Your friendly feeds &amp; speeds buddy. Conservative-by-default starting numbers — always verify by chip color, sound, and feel. These are starting points, not guarantees.</p>
+  <button type="button" class="logo-btn" id="logoBtn" aria-label="ChipBuddy logo — click for a surprise">
+    <img src="chipBuddyLogo.png" alt="ChipBuddy logo" id="logoImg">
+    <video id="logoVideo" src="ChipBuddy.mp4" preload="none" playsinline></video>
+  </button>
+  <div class="header-text">
+    <h1>ChipBuddy <span class="badge">v1 · aluminum</span></h1>
+    <p>Your friendly feeds &amp; speeds buddy. Conservative-by-default starting numbers — always verify by chip color, sound, and feel. These are starting points, not guarantees.</p>
+  </div>
 </header>
+
+<script>
+  // Easter-egg: clicking the logo plays the 6-sec intro video, then reverts.
+  (function setupLogoEgg() {
+    var btn = document.getElementById('logoBtn');
+    var vid = document.getElementById('logoVideo');
+    if (!btn || !vid) return;
+    btn.addEventListener('click', function() {
+      if (btn.classList.contains('playing')) return;
+      btn.classList.add('playing');
+      vid.currentTime = 0;
+      vid.muted = false;
+      var p = vid.play();
+      if (p && typeof p.catch === 'function') {
+        p.catch(function() {
+          // browser blocked unmuted playback — retry muted
+          vid.muted = true;
+          vid.play();
+        });
+      }
+    });
+    vid.addEventListener('ended', function() {
+      btn.classList.remove('playing');
+      vid.muted = false;
+    });
+  })();
+</script>
 
 <main>
   <!-- ===== INPUTS ===== -->
