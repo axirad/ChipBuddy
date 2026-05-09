@@ -241,6 +241,55 @@
     text-align: right;
   }
 
+  /* Editable result values (RPM, Cutting Feed Rate, Feed per Tooth/Rev) */
+  .result-value-input {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: var(--mono);
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    border: 0;
+    background: transparent;
+    padding: 0 2px;
+    width: 96px;
+    text-align: right;
+    /* Native spinner arrows are kept on so users can step values without typing */
+  }
+  .result-value-input:hover { background: #f0f2f4; border-radius: 4px; cursor: text; }
+  .result-value-input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    border-radius: 4px;
+    background: #fff;
+  }
+  .result-value-input.manual { color: var(--warn); }
+  .manual-tag {
+    display: none;
+    font-size: 10px;
+    color: var(--warn);
+    font-weight: 700;
+    margin-left: 6px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+  .manual-tag.show { display: inline; }
+  .reset-link {
+    display: none;
+    font-size: 11px;
+    color: var(--accent);
+    cursor: pointer;
+    margin-left: 6px;
+    background: none;
+    border: 0;
+    padding: 0;
+    font-family: var(--sans);
+    text-decoration: underline;
+    vertical-align: middle;
+  }
+  .reset-link.show { display: inline; }
+  .reset-link:hover { color: var(--ink); }
+
   /* Safety footer */
   .safety {
     background: #fff8e6;
@@ -398,7 +447,7 @@
     </section>
 
     <section class="panel" style="margin-top:16px;">
-      <h2>Setup &amp; Machine</h2>
+      <h2>Setup</h2>
       <div class="field">
         <label>Setup rigidity</label>
         <div class="btn-group" id="rigid-group">
@@ -458,12 +507,21 @@
           <div class="result-label">Spindle</div>
           <div id="rpm-note" class="info" style="display:none"></div>
         </div>
-        <div><span class="result-value" id="r-rpm">—</span><span class="result-unit">RPM</span></div>
+        <div>
+          <input type="number" id="r-rpm" class="result-value-input" min="0" step="100" inputmode="numeric" aria-label="Spindle RPM">
+          <span class="result-unit">RPM</span>
+          <span class="manual-tag" id="r-rpm-tag">manual</span>
+          <button type="button" class="reset-link" id="r-rpm-reset" aria-label="Reset RPM to recommended">↺ recommended</button>
+        </div>
       </div>
 
       <div class="result-row">
         <div class="result-label">Cutting Feed Rate</div>
-        <div><span class="result-value" id="r-feed">—</span><span class="result-unit">IPM</span></div>
+        <div>
+          <input type="number" id="r-feed" class="result-value-input" min="0" step="0.1" inputmode="decimal" aria-label="Cutting feed rate, IPM">
+          <span class="result-unit">IPM</span>
+          <span class="manual-tag" id="r-feed-tag">manual</span>
+        </div>
       </div>
 
       <div class="result-row">
@@ -471,7 +529,13 @@
           <span id="r-chipload-main">Feed per Tooth</span><br>
           <span style="font-weight:400;" id="r-chipload-sub">(Chip Load)</span>
         </div>
-        <div><span class="result-value" id="r-ipt">—</span><span class="result-unit">in</span></div>
+        <div>
+          <input type="number" id="r-ipt" class="result-value-input" min="0" step="0.0001" inputmode="decimal" aria-label="Feed per tooth, inches">
+          <span class="result-unit">in</span>
+          <span class="manual-tag" id="r-ipt-tag">manual</span>
+          <button type="button" class="reset-link" id="r-ipt-reset" aria-label="Reset feed per tooth to recommended">↺ recommended</button>
+        </div>
+        <div class="result-note" id="fpt-warn" style="display:none;">⚠ Outside conservative range — verify with a test cut, listen to the spindle, watch the chip color.</div>
       </div>
 
       <div class="result-row">
@@ -662,7 +726,19 @@ const state = {
   agg: 1,
   cutType: "pocket",
   rpmCapManuallySet: false,
+  iptOverride: null,      // user-edited Feed per Tooth (milling) — null = use recommended
+  iprOverride: null,      // user-edited Feed per Rev (drilling) — null = use recommended
+  rpmOverride: null,      // user-edited Spindle RPM — null = use recommended (capped)
 };
+
+// Any change to a top-level input (slider, dia, flutes, mat, etc.) clears all
+// result-panel overrides so the recommended numbers reassert when the user
+// adjusts the setup.
+function clearFeedOverrides() {
+  state.iptOverride = null;
+  state.iprOverride = null;
+  state.rpmOverride = null;
+}
 
 // ============================================================================
 // CALCULATION
@@ -691,25 +767,34 @@ function calc() {
   // Spindle speed (same formula for both modes)
   const rpmIdeal = sfm * 12 / (Math.PI * state.diaIn);
   const rpmCap = Math.min(state.rpmCapOp, state.rpmMaxMachine);
-  const rpm = Math.min(rpmIdeal, rpmCap);
-  const rpmCapped = rpmIdeal > rpmCap;
+  const rpmRec = Math.round(Math.min(rpmIdeal, rpmCap) / 50) * 50;   // recommended (capped + snap-50)
+  // User can override the recommended RPM. Hard ceiling is the machine max
+  // (override is clamped there in the input handler). The op cap is advisory.
+  const rpm = (state.rpmOverride !== null) ? state.rpmOverride : Math.min(rpmIdeal, rpmCap);
+  const rpmCapped = state.rpmOverride === null && rpmIdeal > rpmCap;
+  const aboveOpCap = state.rpmOverride !== null && state.rpmOverride > state.rpmCapOp;
 
-  // Effective SFM (might be lower than the table's SFM if RPM was capped)
+  // Effective SFM (reflects whatever RPM is actually being used)
   const sfmEffective = Math.PI * state.diaIn * rpm / 12;
 
   // ---- Drilling: feed = IPR × RPM ----
   if (isDrill) {
-    const ipr = drillIPR(state.diaIn, aggIdx, state.toolMat);
+    const iprRec = drillIPR(state.diaIn, aggIdx, state.toolMat);
+    const ipr = (state.iprOverride !== null) ? state.iprOverride : iprRec;
     const feedRaw = ipr * rpm;
     const feed = feedRaw * RIGID_PENALTY[state.rigidity].feed;
     return {
       isDrill: true,
       rpm: Math.round(rpm / 50) * 50,
+      rpmRec,
+      rpmOverridden: state.rpmOverride !== null,
       rpmIdeal: Math.round(rpmIdeal),
-      rpmCapped, rpmCap,
+      rpmCapped, rpmCap, aboveOpCap,
       sfm: Math.round(sfmEffective),
       sfmIdeal: sfm,
-      ipr: ipr,                          // primary drilling feed parameter
+      ipr,                                // primary drilling feed parameter (used)
+      iprRec,                             // recommended (for soft-clamp + reset)
+      iprOverridden: state.iprOverride !== null,
       feed: Math.round(feed * 10) / 10,
       chipBreakPeck:       DRILL_PECK.chipBreakPeck,
       chipBreakRetract:    DRILL_PECK.chipBreakRetract,
@@ -719,7 +804,8 @@ function calc() {
 
   // ---- Milling: feed = IPT × flutes × RPM ----
   const iptRef = IPT_AT_QUARTER[state.toolMat][aggIdx];
-  const ipt = iptForDia(iptRef, state.diaIn);
+  const iptRec = iptForDia(iptRef, state.diaIn);
+  const ipt = (state.iptOverride !== null) ? state.iptOverride : iptRec;
   const feedRaw = ipt * state.flutes * rpm;
   const feed = feedRaw * RIGID_PENALTY[state.rigidity].feed;
   const plunge = feed * 0.40;
@@ -740,11 +826,15 @@ function calc() {
   return {
     isDrill: false,
     rpm: Math.round(rpm / 50) * 50,
+    rpmRec,
+    rpmOverridden: state.rpmOverride !== null,
     rpmIdeal: Math.round(rpmIdeal),
-    rpmCapped, rpmCap,
+    rpmCapped, rpmCap, aboveOpCap,
     sfm: Math.round(sfmEffective),
     sfmIdeal: sfm,
-    ipt: ipt,
+    ipt,                                  // used (override or recommended)
+    iptRec,                               // recommended (for soft-clamp + reset)
+    iptOverridden: state.iptOverride !== null,
     feed: Math.round(feed * 10) / 10,
     plunge: Math.round(plunge * 10) / 10,
     docAxial: Math.round(docAxial * 1000) / 1000,
@@ -761,6 +851,28 @@ function fmt(num, places) {
   return num.toFixed(places);
 }
 
+// Update an <input>'s value but skip if the user is mid-edit (focused),
+// so we don't clobber what they're typing.
+function setInputValue(el, value) {
+  if (!el || document.activeElement === el) return;
+  el.value = value;
+}
+
+// Compute current effective RPM × rigidity penalty — needed to back-derive
+// IPT/IPR when the user types a Cutting Feed Rate. Honors any active RPM
+// override so the feed↔FPT linkage uses the same RPM the result panel shows.
+function effectiveRpmAndPenalty() {
+  const ct = CUT_TYPE[state.cutType];
+  const isDrill = !!ct.isDrilling;
+  const aggIdx = state.agg - 1;
+  const sfmTable = isDrill ? SFM_TABLE_DRILL : SFM_TABLE;
+  const sfm = sfmTable[state.toolMat][aggIdx];
+  const rpmIdeal = sfm * 12 / (Math.PI * state.diaIn);
+  const rpmCap = Math.min(state.rpmCapOp, state.rpmMaxMachine);
+  const rpm = (state.rpmOverride !== null) ? state.rpmOverride : Math.min(rpmIdeal, rpmCap);
+  return { rpm, penalty: RIGID_PENALTY[state.rigidity].feed, isDrill };
+}
+
 function render() {
   const r = calc();
 
@@ -773,36 +885,66 @@ function render() {
   document.getElementById("row-peck-retract").style.display  = showDrill ? "" : "none";
   document.getElementById("row-full-retract").style.display  = showDrill ? "" : "none";
 
-  document.getElementById("r-rpm").textContent = r.rpm.toLocaleString();
-  document.getElementById("r-feed").textContent = fmt(r.feed, 1);
+  setInputValue(document.getElementById("r-rpm"), r.rpm);
+  // Cap RPM input upper bound at machine max so the spinner can't go past it
+  document.getElementById("r-rpm").max = state.rpmMaxMachine;
   document.getElementById("r-sfm").textContent = r.sfm;
 
+  // Update editable inputs without clobbering whatever the user is currently typing
+  setInputValue(document.getElementById("r-feed"), fmt(r.feed, 1));
+
   // Chip-load row swaps label + value: drilling uses IPR (per rev), milling uses IPT (per tooth)
+  const overridden = showDrill ? r.iprOverridden : r.iptOverridden;
   if (showDrill) {
     document.getElementById("r-chipload-main").textContent = "Feed per Rev";
     document.getElementById("r-chipload-sub").textContent  = "(IPR — Fusion's primary)";
-    document.getElementById("r-ipt").textContent = fmt(r.ipr, 4);
+    setInputValue(document.getElementById("r-ipt"), fmt(r.ipr, 4));
     document.getElementById("r-peck").textContent          = fmt(r.chipBreakPeck, 3);
     document.getElementById("r-peck-retract").textContent  = fmt(r.chipBreakRetract, 3);
     document.getElementById("r-full-retract").textContent  = fmt(r.fullRetractInterval, 3);
   } else {
     document.getElementById("r-chipload-main").textContent = "Feed per Tooth";
     document.getElementById("r-chipload-sub").textContent  = "(Chip Load)";
-    document.getElementById("r-ipt").textContent = fmt(r.ipt, 4);
+    setInputValue(document.getElementById("r-ipt"), fmt(r.ipt, 4));
     document.getElementById("r-plunge").textContent     = fmt(r.plunge, 1);
     document.getElementById("r-doc-axial").textContent  = fmt(r.docAxial, 3);
     document.getElementById("r-doc-radial").textContent = fmt(r.docRadial, 3);
   }
 
-  // RPM cap notice
+  // Manual-override visual cues + soft-clamp warning
+  const feedInput = document.getElementById("r-feed");
+  const iptInput  = document.getElementById("r-ipt");
+  feedInput.classList.toggle("manual", overridden);
+  iptInput.classList.toggle("manual",  overridden);
+  document.getElementById("r-feed-tag").classList.toggle("show", overridden);
+  document.getElementById("r-ipt-tag").classList.toggle("show",  overridden);
+  document.getElementById("r-ipt-reset").classList.toggle("show", overridden);
+
+  // Soft clamp: warn if user has gone > 3× recommended or < 0.3× recommended
+  const used = showDrill ? r.ipr : r.ipt;
+  const rec  = showDrill ? r.iprRec : r.iptRec;
+  const outOfBand = overridden && rec > 0 && (used > rec * 3 || used < rec * 0.3);
+  document.getElementById("fpt-warn").style.display = outOfBand ? "block" : "none";
+
+  // RPM advisory: shows ONE of three states (auto-cap, above-op-cap when manual, or hidden)
   const rpmNote = document.getElementById("rpm-note");
-  if (r.rpmCapped) {
+  if (r.aboveOpCap) {
+    rpmNote.style.display = "block";
+    rpmNote.style.color = "var(--warn)";
+    rpmNote.textContent = `Above your operational cap of ${state.rpmCapOp.toLocaleString()} RPM — verify the cut is safe at this speed.`;
+  } else if (r.rpmCapped) {
     rpmNote.style.display = "block";
     rpmNote.style.color = "var(--warn)";
     rpmNote.textContent = `Capped from ideal ${r.rpmIdeal.toLocaleString()} RPM (${r.sfmIdeal} SFM target). Effective SFM ${r.sfm}.`;
   } else {
     rpmNote.style.display = "none";
   }
+
+  // RPM manual-state visual: orange input + tag + reset link, like FPT/feed
+  const rpmInput = document.getElementById("r-rpm");
+  rpmInput.classList.toggle("manual", r.rpmOverridden);
+  document.getElementById("r-rpm-tag").classList.toggle("show", r.rpmOverridden);
+  document.getElementById("r-rpm-reset").classList.toggle("show", r.rpmOverridden);
 
   // Aggressiveness explanation
   document.getElementById("agg-explain").textContent = AGG_EXPLAIN[state.agg - 1];
@@ -836,6 +978,7 @@ function setupBtnGroup(groupId, dataAttr, stateKey, isNumeric) {
     e.target.classList.add("active");
     const v = e.target.getAttribute(dataAttr);
     state[stateKey] = isNumeric ? Number(v) : v;
+    clearFeedOverrides();   // any setup change reasserts the recommended numbers
     render();
   });
 }
@@ -852,24 +995,25 @@ document.getElementById("material").addEventListener("change", e => {
   // adds steel/SS/copper/brass, this is where the SFM/IPT tables get re-keyed
   // by state.material before render(). The state field is plumbed now so the
   // calc() refactor is one-line.
+  clearFeedOverrides();
   render();
 });
 
 document.getElementById("dia").addEventListener("input", e => {
   const v = Number(e.target.value);
-  if (v > 0) { state.diaIn = v; render(); }
+  if (v > 0) { state.diaIn = v; clearFeedOverrides(); render(); }
 });
 document.getElementById("flute-len").addEventListener("input", e => {
   const v = Number(e.target.value);
-  if (v > 0) { state.fluteLen = v; render(); }
+  if (v > 0) { state.fluteLen = v; render(); }    // flute length doesn't affect feed math
 });
 document.getElementById("rpm-max-machine").addEventListener("input", e => {
   const v = Number(e.target.value);
-  if (v > 0) { state.rpmMaxMachine = v; render(); }
+  if (v > 0) { state.rpmMaxMachine = v; clearFeedOverrides(); render(); }
 });
 document.getElementById("rpm-cap-op").addEventListener("input", e => {
   const v = Number(e.target.value);
-  if (v > 0) { state.rpmCapOp = v; state.rpmCapManuallySet = true; render(); }
+  if (v > 0) { state.rpmCapOp = v; state.rpmCapManuallySet = true; clearFeedOverrides(); render(); }
 });
 // Reset auto-suggest if the user clears the field and tabs away
 document.getElementById("rpm-cap-op").addEventListener("blur", e => {
@@ -877,8 +1021,57 @@ document.getElementById("rpm-cap-op").addEventListener("blur", e => {
     state.rpmCapManuallySet = false;
     state.rpmCapOp = autoSuggestRpmCap();
     e.target.value = state.rpmCapOp;
+    clearFeedOverrides();
     render();
   }
+});
+
+// ---- Editable Cutting Feed Rate ↔ Feed per Tooth/Rev ----
+// User edits FPT (or IPR for drilling): store as the canonical override.
+document.getElementById("r-ipt").addEventListener("input", e => {
+  const v = parseFloat(e.target.value);
+  if (!isFinite(v) || v <= 0) return;
+  const { isDrill } = effectiveRpmAndPenalty();
+  if (isDrill) state.iprOverride = v; else state.iptOverride = v;
+  render();
+});
+// User edits Cutting Feed Rate: back-derive IPT (or IPR) and store as override.
+document.getElementById("r-feed").addEventListener("input", e => {
+  const v = parseFloat(e.target.value);
+  if (!isFinite(v) || v <= 0) return;
+  const { rpm, penalty, isDrill } = effectiveRpmAndPenalty();
+  if (rpm <= 0) return;
+  if (isDrill) {
+    state.iprOverride = v / (rpm * penalty);
+  } else {
+    state.iptOverride = v / (state.flutes * rpm * penalty);
+  }
+  render();
+});
+// User edits Spindle RPM: store as override. Hard-clamp to machine max
+// (the op cap is advisory — the render() advisory note will flag it).
+document.getElementById("r-rpm").addEventListener("input", e => {
+  const v = parseFloat(e.target.value);
+  if (!isFinite(v) || v <= 0) return;
+  state.rpmOverride = Math.min(v, state.rpmMaxMachine);
+  if (state.rpmOverride !== v) e.target.value = state.rpmOverride;   // visible clamp
+  render();
+});
+
+// Reset links → drop overrides and let the recommended numbers reassert.
+document.getElementById("r-ipt-reset").addEventListener("click", () => {
+  state.iptOverride = null; state.iprOverride = null;
+  render();
+});
+document.getElementById("r-rpm-reset").addEventListener("click", () => {
+  state.rpmOverride = null;
+  render();
+});
+
+// On blur, re-render so values normalize (e.g., "0.001" → "0.0010"). If the
+// user emptied the field, render() falls back to the current calculated value.
+["r-ipt", "r-feed", "r-rpm"].forEach(id => {
+  document.getElementById(id).addEventListener("blur", () => render());
 });
 
 render();
