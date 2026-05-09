@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ChipBuddy — Friendly Feeds & Speeds for Machinists</title>
 <meta name="description" content="Conservative feeds, speeds, and DOC recommendations for trainee machinists. Aluminum milling and drilling. Free, no login.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E🛠️%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
+<link rel="apple-touch-icon" href="favicon-256.png">
 <style>
   :root {
     --bg: #f6f7f8;
@@ -459,54 +462,54 @@
       </div>
 
       <div class="result-row">
-        <div class="result-label">Cut feed</div>
+        <div class="result-label">Cutting Feed Rate</div>
         <div><span class="result-value" id="r-feed">—</span><span class="result-unit">IPM</span></div>
       </div>
 
-      <div class="result-row" id="row-plunge">
-        <div class="result-label">Plunge feed</div>
-        <div><span class="result-value" id="r-plunge">—</span><span class="result-unit">IPM</span></div>
+      <div class="result-row">
+        <div class="result-label">
+          <span id="r-chipload-main">Feed per Tooth</span><br>
+          <span style="font-weight:400;" id="r-chipload-sub">(Chip Load)</span>
+        </div>
+        <div><span class="result-value" id="r-ipt">—</span><span class="result-unit">in</span></div>
       </div>
 
-      <!-- Milling-only: axial + radial DOC -->
+      <div class="result-row">
+        <div class="result-label">Surface Speed<br><span style="font-weight:400;">(SFM)</span></div>
+        <div><span class="result-value" id="r-sfm">—</span><span class="result-unit">ft/min</span></div>
+      </div>
+
+      <!-- Milling-only: axial Depth of Cut (radial + plunge moved to bottom of panel) -->
       <div class="result-row" id="row-doc-axial">
-        <div class="result-label">Axial DOC<br><span style="font-weight:400;">(max stepdown)</span></div>
+        <div class="result-label">Axial Depth of Cut<br><span style="font-weight:400;">(max stepdown)</span></div>
         <div><span class="result-value" id="r-doc-axial">—</span><span class="result-unit">in</span></div>
         <div class="result-note flute-rule" id="flute-rule" style="display:none; text-align:left; color:var(--danger); font-weight:600;">
           ⚠ DOC exceeds 1× tool diameter — switch to a <strong>2 or 3 flute</strong> endmill so chips can evacuate. 4+ flutes will pack and break the tool.
         </div>
       </div>
 
-      <div class="result-row" id="row-doc-radial">
-        <div class="result-label">Radial DOC<br><span style="font-weight:400;" id="r-doc-radial-label">(optimal load)</span></div>
-        <div><span class="result-value" id="r-doc-radial">—</span><span class="result-unit">in</span></div>
-      </div>
-
       <!-- Drilling-only: peck pattern (G73 chip-break + G83 full-retract) -->
       <div class="result-row" id="row-peck" style="display:none;">
-        <div class="result-label">Chip-break peck<br><span style="font-weight:400;">(forward each peck)</span></div>
+        <div class="result-label">Chip-Break Peck<br><span style="font-weight:400;">(forward each peck)</span></div>
         <div><span class="result-value" id="r-peck">—</span><span class="result-unit">in</span></div>
       </div>
       <div class="result-row" id="row-peck-retract" style="display:none;">
-        <div class="result-label">Chip-break retract<br><span style="font-weight:400;">(snap chip)</span></div>
+        <div class="result-label">Chip-Break Retract<br><span style="font-weight:400;">(snap chip)</span></div>
         <div><span class="result-value" id="r-peck-retract">—</span><span class="result-unit">in</span></div>
       </div>
       <div class="result-row" id="row-full-retract" style="display:none;">
-        <div class="result-label">Full retract every<br><span style="font-weight:400;">(clear chips)</span></div>
+        <div class="result-label">Full Retract Every<br><span style="font-weight:400;">(clear chips)</span></div>
         <div><span class="result-value" id="r-full-retract">—</span><span class="result-unit">in</span></div>
       </div>
 
-      <div class="result-row">
-        <div class="result-label">SFM<br><span style="font-weight:400;">(surface speed)</span></div>
-        <div><span class="result-value" id="r-sfm">—</span><span class="result-unit">ft/min</span></div>
+      <div class="result-row" id="row-doc-radial">
+        <div class="result-label">Radial Depth of Cut<br><span style="font-weight:400;" id="r-doc-radial-label">(optimal load)</span></div>
+        <div><span class="result-value" id="r-doc-radial">—</span><span class="result-unit">in</span></div>
       </div>
 
-      <div class="result-row">
-        <div class="result-label">
-          <span id="r-chipload-main">Chip load</span><br>
-          <span style="font-weight:400;" id="r-chipload-sub">(per tooth)</span>
-        </div>
-        <div><span class="result-value" id="r-ipt">—</span><span class="result-unit">in</span></div>
+      <div class="result-row" id="row-plunge">
+        <div class="result-label">Plunge Feed Rate</div>
+        <div><span class="result-value" id="r-plunge">—</span><span class="result-unit">IPM</span></div>
       </div>
 
       <div class="safety">
@@ -776,15 +779,15 @@ function render() {
 
   // Chip-load row swaps label + value: drilling uses IPR (per rev), milling uses IPT (per tooth)
   if (showDrill) {
-    document.getElementById("r-chipload-main").textContent = "Feed per rev";
+    document.getElementById("r-chipload-main").textContent = "Feed per Rev";
     document.getElementById("r-chipload-sub").textContent  = "(IPR — Fusion's primary)";
     document.getElementById("r-ipt").textContent = fmt(r.ipr, 4);
     document.getElementById("r-peck").textContent          = fmt(r.chipBreakPeck, 3);
     document.getElementById("r-peck-retract").textContent  = fmt(r.chipBreakRetract, 3);
     document.getElementById("r-full-retract").textContent  = fmt(r.fullRetractInterval, 3);
   } else {
-    document.getElementById("r-chipload-main").textContent = "Chip load";
-    document.getElementById("r-chipload-sub").textContent  = "(per tooth)";
+    document.getElementById("r-chipload-main").textContent = "Feed per Tooth";
+    document.getElementById("r-chipload-sub").textContent  = "(Chip Load)";
     document.getElementById("r-ipt").textContent = fmt(r.ipt, 4);
     document.getElementById("r-plunge").textContent     = fmt(r.plunge, 1);
     document.getElementById("r-doc-axial").textContent  = fmt(r.docAxial, 3);
@@ -805,7 +808,7 @@ function render() {
   document.getElementById("agg-explain").textContent = AGG_EXPLAIN[state.agg - 1];
   document.getElementById("pro-warn").classList.toggle("show", state.agg === 5);
 
-  // Update Radial DOC label (varies by cut type: "optimal load" vs "stepover")
+  // Update Radial Depth of Cut sub-label (varies by cut type: "optimal load" vs "stepover")
   const ct = CUT_TYPE[state.cutType];
   const radialLabelEl = document.getElementById("r-doc-radial-label");
   if (radialLabelEl && ct.label) radialLabelEl.textContent = `(${ct.label})`;
