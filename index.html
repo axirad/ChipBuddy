@@ -629,8 +629,8 @@ const SFM_TABLE_DRILL = {
   hss:     [ 60,  80, 110, 140, 180],
 };
 
-// DRILLING uses IPR (Inches Per Revolution) as the primary feed parameter,
-// matching Fusion's CAM convention and machinist standard practice. Feed (IPM)
+// DRILLING uses IPR (Inches Per Revolution) as the feed parameter, matching
+// machinist standard practice for drill cycles. Feed (IPM)
 // = IPR × RPM. NB: do NOT multiply by flutes here — IPR already accounts for
 // per-revolution displacement regardless of flute count.
 //
@@ -918,7 +918,7 @@ function render() {
   const overridden = showDrill ? r.iprOverridden : r.iptOverridden;
   if (showDrill) {
     document.getElementById("r-chipload-main").textContent = "Feed per Rev";
-    document.getElementById("r-chipload-sub").textContent  = "(IPR — Fusion's primary)";
+    document.getElementById("r-chipload-sub").textContent  = "(IPR)";
     setInputValue(document.getElementById("r-ipt"), fmt(r.ipr, 4));
     document.getElementById("r-peck").textContent          = fmt(r.chipBreakPeck, 3);
     document.getElementById("r-peck-retract").textContent  = fmt(r.chipBreakRetract, 3);
