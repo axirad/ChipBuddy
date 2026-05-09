@@ -43,11 +43,11 @@
     flex: 1;
     min-width: 0;
   }
-  header h1 {
-    margin: 0 0 4px;
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 6px;
   }
   header p {
     margin: 0;
@@ -306,12 +306,14 @@
 <body>
 
 <header>
-  <button type="button" class="logo-btn" id="logoBtn" aria-label="ChipBuddy logo — click for a surprise">
-    <img src="ChipBuddyChip.png" alt="ChipBuddy logo" id="logoImg">
-    <video id="logoVideo" src="ChipBuddyClip01.mp4" preload="none" playsinline></video>
-  </button>
   <div class="header-text">
-    <h1>ChipBuddy <span class="badge">v1 · aluminum</span></h1>
+    <div class="title-row">
+      <button type="button" class="logo-btn" id="logoBtn" aria-label="ChipBuddy logo — click for a surprise">
+        <img src="ChipBuddyChip.png" alt="ChipBuddy logo" id="logoImg">
+        <video id="logoVideo" src="ChipBuddyClip01.mp4" preload="none" playsinline></video>
+      </button>
+      <span class="badge">v1 · aluminum</span>
+    </div>
     <p>Your friendly feeds &amp; speeds buddy. Conservative-by-default starting numbers — always verify by chip color, sound, and feel. These are starting points, not guarantees.</p>
   </div>
 </header>
