@@ -161,6 +161,7 @@
     flex-wrap: wrap;
   }
   .btn-group button {
+    position: relative;
     flex: 1 1 auto;
     padding: 8px 10px;
     border: 1px solid var(--line);
@@ -188,6 +189,26 @@
     letter-spacing: 0;
   }
   .btn-group button.active .sub { color: rgba(255,255,255,0.85); }
+  .est-pill {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--warn);
+    background: rgba(182,92,0,0.10);
+    border: 1px solid var(--warn);
+    border-radius: 3px;
+    padding: 1px 4px;
+    line-height: 1;
+  }
+  .btn-group button.active .est-pill {
+    color: #fff;
+    background: rgba(255,255,255,0.18);
+    border-color: rgba(255,255,255,0.6);
+  }
 
   /* Aggressiveness slider */
   .agg-row {
@@ -451,11 +472,12 @@
       <div class="field">
         <label>Machine class</label>
         <div class="btn-group" id="machine-group">
-          <button data-machine="light">Light<span class="sub">Benchtop ≤500 lb</span><span class="sub">(Sherline, X2, PM-25)</span></button>
-          <button data-machine="mid">Mid<span class="sub">RF45 / Tormach 770M</span><span class="sub">(≈500–2,000 lb)</span></button>
+          <button data-machine="light">Light<span class="est-pill">est.</span><span class="sub">Benchtop ≤500 lb</span><span class="sub">(Sherline, X2, PM-25)</span></button>
+          <button data-machine="mid">Mid<span class="est-pill">est.</span><span class="sub">RF45 / Tormach 770M</span><span class="sub">(≈500–2,000 lb)</span></button>
           <button data-machine="heavy" class="active">Heavy<span class="sub">Haas VF / Doosan</span><span class="sub">full VMC (≥2,000 lb)</span></button>
         </div>
         <div class="hint">Heavier machines damp chatter and resist deflection — they tolerate more feed and DOC. Light machines need a derate.</div>
+        <div class="hint warn"><em>est.</em> = de-rate is based on standard rigidity conventions; only Heavy is personally verified (Haas VF3). Start conservative on a new machine.</div>
       </div>
       <div class="field">
         <label>Setup rigidity</label>
