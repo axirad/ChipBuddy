@@ -454,14 +454,14 @@
         <div class="hint" id="flutes-hint">Pocket / Adaptive: 2–3 flutes preferred for chip evac; 4 OK for shallow. Facing &amp; Contour: 4–8 flutes give better finish.</div>
       </div>
       <div class="field">
-        <label>Tool material</label>
+        <label>Tool Material</label>
         <div class="btn-group" id="toolmat-group">
           <button data-toolmat="carbide" class="active">Carbide</button>
           <button data-toolmat="hss">HSS</button>
         </div>
       </div>
       <div class="field">
-        <label for="flute-len">Flute length (in)</label>
+        <label for="flute-len">Flute Length (in)</label>
         <input type="number" id="flute-len" step="0.05" min="0.05" value="0.75">
         <div class="hint">Caps the maximum axial DOC the tool can reach.</div>
       </div>
@@ -470,7 +470,7 @@
     <section class="panel" style="margin-top:16px;">
       <h2>Setup</h2>
       <div class="field">
-        <label>Machine class</label>
+        <label>Machine Class</label>
         <div class="btn-group" id="machine-group">
           <button data-machine="light">Light<span class="est-pill">est.</span><span class="sub">Benchtop ≤500 lb</span><span class="sub">(Sherline, X2, PM-25)</span></button>
           <button data-machine="mid">Mid<span class="est-pill">est.</span><span class="sub">RF45 / Tormach 770M</span><span class="sub">(≈500–2,000 lb)</span></button>
@@ -480,7 +480,7 @@
         <div class="hint warn"><strong>EST.</strong>= Only Heavy Machine Class is personally verified. Start Conservative on a new Machine Class.</div>
       </div>
       <div class="field">
-        <label>Setup rigidity</label>
+        <label>Setup Rigidity</label>
         <div class="btn-group" id="rigid-group">
           <button data-rigid="1" class="active">1 — Solid<span class="sub">Clamped good in vise</span><span class="sub">Short tool stick out</span></button>
           <button data-rigid="2">2 — Maybe<span class="sub">Light vise clamp</span><span class="sub">Longer tool stick out</span></button>
@@ -495,7 +495,7 @@
         <div class="hint">Hard ceiling — recommendations never exceed this.</div>
       </div>
       <div class="field">
-        <label for="rpm-cap-op">Operation RPM cap</label>
+        <label for="rpm-cap-op">Operation RPM Cap</label>
         <input type="number" id="rpm-cap-op" step="500" min="500" value="6000">
         <div class="hint" id="rpm-cap-hint">Auto-suggested. Tools ≥ 1/8" cap at 6000; under 1/16" or engraving allow up to machine max.</div>
       </div>
@@ -504,9 +504,9 @@
     <section class="panel" style="margin-top:16px;">
       <h2>Operation</h2>
       <div class="field">
-        <label>Cut type</label>
+        <label>Cut Type</label>
         <div class="btn-group" id="cuttype-group">
-          <button data-cuttype="pocket" class="active">Pocket</button>
+          <button data-cuttype="pocket" class="active">Adaptive/Pocket</button>
           <button data-cuttype="facing">Facing</button>
           <button data-cuttype="contour">Contour</button>
           <button data-cuttype="drilling">Drilling</button>
