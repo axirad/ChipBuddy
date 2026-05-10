@@ -26,6 +26,7 @@
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 12px; }
   body {
     font-family: var(--sans);
     background: var(--bg);
@@ -381,7 +382,7 @@
         <video id="logoVideo" src="ChipBuddyClip01.mp4" preload="none" playsinline></video>
       </button>
     </div>
-    <p>Your friendly feeds &amp; speeds buddy for new CNC mill users to grow with. Conservative-by-default starting numbers — always verify by chip color, sound, and feel. These are starting points, not guarantees.</p>
+    <p>Your friendly feeds &amp; speeds buddy for new CNC mill users to grow with. Conservative-by-default starting numbers — always verify by sound, chip shape/color, overall feeling of cut. <a href="#safety" style="color:var(--accent);">See comments at bottom.</a> These are starting points, not guarantees.</p>
   </div>
 </header>
 
@@ -607,7 +608,7 @@
         <div><span class="result-value" id="r-plunge">—</span><span class="result-unit">IPM</span></div>
       </div>
 
-      <div class="safety">
+      <div class="safety" id="safety">
         <strong>Listen to the spindle.</strong> Smooth hum, no chatter or squeal = good. If the setup feels off, recompute conservatively.<br>
         <strong>For Aluminum:</strong> bright silver chips curling away = good; chips welding to the flutes or packing in a pocket = stop, more lube/coolant or back the feed off.<br>
         <strong>For Steel:</strong> blue chips curling away = good; brown/black chips = stop, you're burning the tool.
