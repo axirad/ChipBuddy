@@ -1208,9 +1208,31 @@ function setupBtnGroup(groupId, dataAttr, stateKey, isNumeric) {
 setupBtnGroup("flutes-group",  "data-flutes",  "flutes",       true);
 setupBtnGroup("toolmat-group", "data-toolmat", "toolMat",      false);
 setupBtnGroup("rigid-group",   "data-rigid",   "rigidity",     true);
-setupBtnGroup("cuttype-group", "data-cuttype", "cutType",      false);
 setupBtnGroup("agg-row",       "data-agg",     "agg",          true);
 setupBtnGroup("machine-group", "data-machine", "machineClass", false);
+
+// Cut-type group has a sanity gate on the Facing button: face mills are
+// typically 2–4", so switching to Facing while the dia is < 2" is almost
+// always a forgotten field. Confirm before applying — if the user cancels,
+// the button stays on the previous cut type.
+(function setupCutTypeGroup() {
+  const group = document.getElementById("cuttype-group");
+  group.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn || !group.contains(btn) || btn.disabled) return;
+    const v = btn.getAttribute("data-cuttype");
+    if (v === state.cutType) return;
+    if (v === "facing" && state.diaIn < 2.0) {
+      const shown = `${dispLen(state.diaIn).toFixed(placesDia())} ${labelLen()}`;
+      if (!confirm(`Tool diameter is set at ${shown}. Do you want to continue?`)) return;
+    }
+    [...group.children].forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    state.cutType = v;
+    clearFeedOverrides();
+    render();
+  });
+})();
 
 // Units toggle — bespoke handler (does NOT clear feed overrides, since the
 // internal IPT/IPR values in inches stay physically meaningful after a unit
