@@ -591,7 +591,7 @@
 
       <!-- Milling-only: axial Depth of Cut (radial + plunge moved to bottom of panel) -->
       <div class="result-row" id="row-doc-axial">
-        <div class="result-label">Axial Depth of Cut<br><span style="font-weight:400;">(max stepdown)</span></div>
+        <div class="result-label">Axial Depth of Cut<br><span style="font-weight:400;">(stepdown)</span></div>
         <div>
           <input type="number" id="r-doc-axial" class="result-value-input" min="0" step="0.005" inputmode="decimal" aria-label="Axial depth of cut">
           <span class="result-unit" id="u-doc-axial">in</span>
@@ -600,8 +600,8 @@
         </div>
       </div>
       <div class="row-notes" id="row-doc-axial-notes">
-        <div class="result-note flute-rule" id="flute-rule" style="display:none; text-align:left; color:var(--danger); font-weight:600;">
-          ⚠ DOC exceeds 1× tool diameter — switch to a <strong>2 or 3 flute</strong> endmill so chips can evacuate. 4+ flutes will pack and break the tool.
+        <div class="result-note flute-rule" id="flute-rule" style="display:none; text-align:left; color:var(--warn); font-weight:500;">
+          A <strong>3-flute</strong> endmill is recommended for chip clearing at this depth.
         </div>
         <div class="result-note doc-warn-mod" id="doc-warn-mod" style="display:none; text-align:left; color:var(--warn); font-weight:600;">
           ⚠ DOC is 1.25× tool diameter or more — well above recommended. Verify rigidity, listen for chatter, take a test cut first.
@@ -737,13 +737,12 @@ function iptForDia(iptAtQuarter, diaIn) {
 const CUT_TYPE = {
   pocket: {
     label: "optimal load",
-    // v1.8 (2026-05-12): rescaled to 50-90% of original Conservative (0.5 × dia).
-    // Old [0.5, 0.75, 1.0, 1.25, 1.5] was too aggressive at Aggressive/Pro for
-    // newbies; new scale stays below 1× dia chip-evac threshold across the
-    // whole slider. Manual DOC override can push past — escalating warnings
-    // fire at 1.25× dia (moderate) and 1.5× dia (strong).
-    axialMult:  [0.25,  0.30,  0.35,  0.40,  0.45],   // × dia (50-90% of 0.5)
-    radialMult: [0.08,  0.12,  0.16,  0.20,  0.25],   // × dia (unchanged — radial loads weren't the problem)
+    // v1.8b (2026-05-12, second pass): Thad chose specific fractional-inch
+    // DOC values rather than uniform percentages. For a 1/4" tool:
+    //   Cons 0.0625"  Semi 0.125"  Somewhat 0.188"  Aggressive 0.200"  Pro 0.250"
+    // The corresponding × dia multipliers:
+    axialMult:  [0.25,  0.50,  0.75,  0.80,  1.00],   // × dia
+    radialMult: [0.08,  0.12,  0.16,  0.20,  0.25],   // × dia (unchanged)
     fluteRuleApplies: true,
   },
   facing: {
@@ -754,7 +753,7 @@ const CUT_TYPE = {
   },
   contour: {
     label: "stepover",
-    axialMult:  [0.25,  0.30,  0.35,  0.40,  0.45],   // × dia (same rescale as pocket)
+    axialMult:  [0.25,  0.50,  0.75,  0.80,  1.00],   // × dia (same as pocket)
     radialMult: [0.05,  0.08,  0.12,  0.15,  0.20],   // × dia (unchanged — small wall finish)
     fluteRuleApplies: false,   // radial is small → chips evacuate easily
   },
@@ -1144,13 +1143,14 @@ function render() {
   const radialLabelEl = document.getElementById("r-doc-radial-label");
   if (radialLabelEl && ct.label) radialLabelEl.textContent = `(${ct.label})`;
 
-  // Chip-evacuation rule: only applies where cut-type config says so (Pocket).
-  // Triggers when 4+ flutes AND axial DOC ≥ 1× tool dia. Suppressed when a
-  // higher-severity general DOC warning (≥1.25× dia) is already firing.
+  // 3-flute suggestion: fires when pocket axial DOC ≥ 0.75× tool dia AND the
+  // user has 4+ flutes selected. Calm orange tone (not dire) — just a tip.
+  // Suppressed when a higher-severity general DOC warning (≥1.25× dia) is
+  // already firing, since that message already implies a setup review.
   const docRatioForFlute = state.diaIn > 0 && !showDrill ? r.docAxial / state.diaIn : 0;
   const higherWarnActive = docRatioForFlute >= 1.25;
   const violatesFluteRule = !showDrill && ct.fluteRuleApplies && state.flutes >= 4
-                            && r.docAxial >= state.diaIn && !higherWarnActive;
+                            && docRatioForFlute >= 0.75 && !higherWarnActive;
   document.getElementById("flute-rule").style.display = violatesFluteRule ? "block" : "none";
 
   // Auto-suggest RPM cap on dia change (unless user manually edited)
