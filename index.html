@@ -244,6 +244,11 @@
     padding: 10px 0;
     border-bottom: 1px solid var(--line);
   }
+  /* Block-level notes that live BELOW a result-row (not flex children) —
+     keeps the row's input + unit + tags together on one line, and stacks
+     multiple warnings vertically when several apply. */
+  .row-notes { display: block; margin-top: -4px; padding: 2px 0 8px; }
+  .row-notes .result-note { position: static; flex: none; }
   .result-row:last-child { border-bottom: none; }
   .result-label { font-size: 12px; color: var(--ink-soft); font-weight: 500; }
   .result-value {
@@ -324,9 +329,11 @@
   .safety strong { color: #4a3700; }
 
   .pro-warn {
-    background: #fde8e8;
-    border: 1px solid #f5b6b6;
-    color: #7a1a1a;
+    /* Toned down in v1.8 — Pro is now 0.45×dia (under chip-evac threshold),
+       so this is informational, not a "you're at the edge" alarm. */
+    background: #fff8e6;
+    border: 1px solid #f0d896;
+    color: #6b4f00;
     padding: 8px 10px;
     border-radius: 6px;
     font-size: 12px;
@@ -531,7 +538,7 @@
           <button data-agg="5">Pro</button>
         </div>
         <div class="agg-explain" id="agg-explain">Conservative: lower SFM, modest DOC, lots of margin. Best for new setups, unfamiliar tools, listening to your machine.</div>
-        <div class="pro-warn" id="pro-warn"><strong>Pro mode:</strong> assumes a rigid machine, sharp tool, known work-holding, and chip evacuation. Verify on a test cut.</div>
+        <div class="pro-warn" id="pro-warn"><strong>Pro:</strong> top of the recommended range. Numbers stay below 1× tool diameter — still verify on a test cut, listen for chatter, watch chip color.</div>
       </div>
     </section>
   </div>
@@ -585,9 +592,22 @@
       <!-- Milling-only: axial Depth of Cut (radial + plunge moved to bottom of panel) -->
       <div class="result-row" id="row-doc-axial">
         <div class="result-label">Axial Depth of Cut<br><span style="font-weight:400;">(max stepdown)</span></div>
-        <div><span class="result-value" id="r-doc-axial">—</span><span class="result-unit" id="u-doc-axial">in</span></div>
+        <div>
+          <input type="number" id="r-doc-axial" class="result-value-input" min="0" step="0.005" inputmode="decimal" aria-label="Axial depth of cut">
+          <span class="result-unit" id="u-doc-axial">in</span>
+          <span class="manual-tag" id="r-doc-axial-tag">manual</span>
+          <button type="button" class="reset-link" id="r-doc-axial-reset" aria-label="Reset axial DOC to recommended">↺ recommended</button>
+        </div>
+      </div>
+      <div class="row-notes" id="row-doc-axial-notes">
         <div class="result-note flute-rule" id="flute-rule" style="display:none; text-align:left; color:var(--danger); font-weight:600;">
           ⚠ DOC exceeds 1× tool diameter — switch to a <strong>2 or 3 flute</strong> endmill so chips can evacuate. 4+ flutes will pack and break the tool.
+        </div>
+        <div class="result-note doc-warn-mod" id="doc-warn-mod" style="display:none; text-align:left; color:var(--warn); font-weight:600;">
+          ⚠ DOC is 1.25× tool diameter or more — well above recommended. Verify rigidity, listen for chatter, take a test cut first.
+        </div>
+        <div class="result-note doc-warn-strong" id="doc-warn-strong" style="display:none; text-align:left; color:var(--danger); font-weight:700;">
+          🛑 DOC is 1.5× tool diameter or more — very high break risk. Confirm chip evac, rigid setup, sharp tool. Test cut required.
         </div>
       </div>
 
@@ -607,7 +627,12 @@
 
       <div class="result-row" id="row-doc-radial">
         <div class="result-label">Radial Depth of Cut<br><span style="font-weight:400;" id="r-doc-radial-label">(optimal load)</span></div>
-        <div><span class="result-value" id="r-doc-radial">—</span><span class="result-unit" id="u-doc-radial">in</span></div>
+        <div>
+          <input type="number" id="r-doc-radial" class="result-value-input" min="0" step="0.005" inputmode="decimal" aria-label="Radial depth of cut">
+          <span class="result-unit" id="u-doc-radial">in</span>
+          <span class="manual-tag" id="r-doc-radial-tag">manual</span>
+          <button type="button" class="reset-link" id="r-doc-radial-reset" aria-label="Reset radial DOC to recommended">↺ recommended</button>
+        </div>
       </div>
 
       <div class="result-row" id="row-plunge">
@@ -712,20 +737,25 @@ function iptForDia(iptAtQuarter, diaIn) {
 const CUT_TYPE = {
   pocket: {
     label: "optimal load",
-    axialMult:  [0.5,   0.75,  1.0,   1.25,  1.5 ],   // × dia
-    radialMult: [0.08,  0.12,  0.16,  0.20,  0.25],   // × dia
+    // v1.8 (2026-05-12): rescaled to 50-90% of original Conservative (0.5 × dia).
+    // Old [0.5, 0.75, 1.0, 1.25, 1.5] was too aggressive at Aggressive/Pro for
+    // newbies; new scale stays below 1× dia chip-evac threshold across the
+    // whole slider. Manual DOC override can push past — escalating warnings
+    // fire at 1.25× dia (moderate) and 1.5× dia (strong).
+    axialMult:  [0.25,  0.30,  0.35,  0.40,  0.45],   // × dia (50-90% of 0.5)
+    radialMult: [0.08,  0.12,  0.16,  0.20,  0.25],   // × dia (unchanged — radial loads weren't the problem)
     fluteRuleApplies: true,
   },
   facing: {
     label: "stepover",
-    axialAbs:   [0.010, 0.020, 0.030, 0.050, 0.080],  // absolute in (doubled from [.005..040] per Thad 2026-05-08)
+    axialAbs:   [0.010, 0.020, 0.030, 0.050, 0.080],  // absolute in (unchanged — facing is already shallow)
     radialMult: [0.50,  0.60,  0.70,  0.80,  0.90],   // × dia
     fluteRuleApplies: false,   // facing is always shallow → 4-8 flute fine
   },
   contour: {
     label: "stepover",
-    axialMult:  [0.5,   0.75,  1.0,   1.25,  1.5 ],   // × dia (same as pocket)
-    radialMult: [0.05,  0.08,  0.12,  0.15,  0.20],   // × dia (small — wall finish)
+    axialMult:  [0.25,  0.30,  0.35,  0.40,  0.45],   // × dia (same rescale as pocket)
+    radialMult: [0.05,  0.08,  0.12,  0.15,  0.20],   // × dia (unchanged — small wall finish)
     fluteRuleApplies: false,   // radial is small → chips evacuate easily
   },
   drilling: {
@@ -756,7 +786,7 @@ const AGG_EXPLAIN = [
   "Semi-Conservative: a little faster. Good once you trust the setup but still want margin.",
   "Somewhat Aggressive: middle of recommended range. Confident in tool, work-holding, and chip evacuation.",
   "Aggressive: pushing for productivity. Sharp tool required, rigid setup, eyes on the cut.",
-  "Pro: full chip-load potential. Assumes everything is dialed in. Verify on a test cut first."
+  "Pro: top of the recommended scale (still under 1× tool dia). Sharp tool, rigid setup, and a test cut first."
 ];
 
 // ============================================================================
@@ -818,6 +848,8 @@ const state = {
   iptOverride: null,      // user-edited Feed per Tooth (milling) — null = use recommended
   iprOverride: null,      // user-edited Feed per Rev (drilling) — null = use recommended
   rpmOverride: null,      // user-edited Spindle RPM — null = use recommended (capped)
+  docAxialOverride: null, // user-edited Axial DOC (inches) — null = use recommended
+  docRadialOverride: null,// user-edited Radial DOC (inches) — null = use recommended
 };
 
 // Any change to a top-level input (slider, dia, flutes, mat, etc.) clears all
@@ -827,6 +859,8 @@ function clearFeedOverrides() {
   state.iptOverride = null;
   state.iprOverride = null;
   state.rpmOverride = null;
+  state.docAxialOverride = null;
+  state.docRadialOverride = null;
 }
 
 // ============================================================================
@@ -903,16 +937,21 @@ function calc() {
 
   // ---- Milling DOC (cut-type specific) ----
   const rigidDoc = RIGID_PENALTY[state.rigidity].doc;
-  let docAxial;
+  let docAxialRec;
   if (ct.axialAbs) {
-    docAxial = ct.axialAbs[aggIdx] * rigidDoc * mcMult;        // Facing
+    docAxialRec = ct.axialAbs[aggIdx] * rigidDoc * mcMult;        // Facing
   } else {
-    docAxial = state.diaIn * ct.axialMult[aggIdx] * rigidDoc * mcMult;  // Pocket / Contour
+    docAxialRec = state.diaIn * ct.axialMult[aggIdx] * rigidDoc * mcMult;  // Pocket / Contour
   }
+  const docRadialRec = state.diaIn * ct.radialMult[aggIdx] * rigidDoc * mcMult;
+
+  // Honor user overrides (entered via the editable DOC inputs).
+  let docAxial  = (state.docAxialOverride  !== null) ? state.docAxialOverride  : docAxialRec;
+  let docRadial = (state.docRadialOverride !== null) ? state.docRadialOverride : docRadialRec;
+
+  // Flute-length cap is a HARD physical limit — applies to both recommended AND override.
   const docAxialCappedByFlute = docAxial > state.fluteLen;
   if (docAxialCappedByFlute) docAxial = state.fluteLen;
-
-  const docRadial = state.diaIn * ct.radialMult[aggIdx] * rigidDoc * mcMult;
 
   return {
     isDrill: false,
@@ -929,8 +968,12 @@ function calc() {
     feed: Math.round(feed * 10) / 10,
     plunge: Math.round(plunge * 10) / 10,
     docAxial: Math.round(docAxial * 1000) / 1000,
+    docAxialRec: Math.round(docAxialRec * 1000) / 1000,
+    docAxialOverridden: state.docAxialOverride !== null,
     docAxialCappedByFlute,
     docRadial: Math.round(docRadial * 1000) / 1000,
+    docRadialRec: Math.round(docRadialRec * 1000) / 1000,
+    docRadialOverridden: state.docRadialOverride !== null,
   };
 }
 
@@ -962,10 +1005,13 @@ function applyUnitLabels() {
   // Diameter hint copy (common sizes list)
   document.getElementById("dia-hint").textContent     = diaHintCopy();
   // Input spinner steps
-  document.getElementById("dia").step       = stepDia();
-  document.getElementById("flute-len").step = stepFluteLen();
-  document.getElementById("r-feed").step    = stepFeed();
-  document.getElementById("r-ipt").step     = stepIptIpr();
+  document.getElementById("dia").step          = stepDia();
+  document.getElementById("flute-len").step    = stepFluteLen();
+  document.getElementById("r-feed").step       = stepFeed();
+  document.getElementById("r-ipt").step        = stepIptIpr();
+  // DOC fields use 0.005 in / 0.1 mm per Thad's spec
+  document.getElementById("r-doc-axial").step  = isMetric() ? 0.1 : 0.005;
+  document.getElementById("r-doc-radial").step = isMetric() ? 0.1 : 0.005;
 }
 
 // Update an <input>'s value but skip if the user is mid-edit (focused),
@@ -1027,8 +1073,28 @@ function render() {
     document.getElementById("r-chipload-sub").textContent  = "(Chip Load)";
     setInputValue(document.getElementById("r-ipt"), fmt(dispLen(r.ipt), placesIptIpr()));
     document.getElementById("r-plunge").textContent     = fmt(dispFeed(r.plunge), placesFeed());
-    document.getElementById("r-doc-axial").textContent  = fmt(dispLen(r.docAxial), placesLen());
-    document.getElementById("r-doc-radial").textContent = fmt(dispLen(r.docRadial), placesLen());
+    setInputValue(document.getElementById("r-doc-axial"),  fmt(dispLen(r.docAxial),  placesLen()));
+    setInputValue(document.getElementById("r-doc-radial"), fmt(dispLen(r.docRadial), placesLen()));
+
+    // DOC manual-override visual cues (orange + MANUAL tag + reset link)
+    const axialIn  = document.getElementById("r-doc-axial");
+    const radialIn = document.getElementById("r-doc-radial");
+    axialIn.classList.toggle("manual",  r.docAxialOverridden);
+    radialIn.classList.toggle("manual", r.docRadialOverridden);
+    document.getElementById("r-doc-axial-tag").classList.toggle("show",   r.docAxialOverridden);
+    document.getElementById("r-doc-axial-reset").classList.toggle("show", r.docAxialOverridden);
+    document.getElementById("r-doc-radial-tag").classList.toggle("show",   r.docRadialOverridden);
+    document.getElementById("r-doc-radial-reset").classList.toggle("show", r.docRadialOverridden);
+
+    // Escalating axial-DOC warnings — mutually exclusive, show only the highest
+    // severity that applies. The flute-rule (chip-evac) is handled separately
+    // below in the existing block, but suppressed if a higher-severity warning
+    // is already firing.
+    const docRatio = state.diaIn > 0 ? r.docAxial / state.diaIn : 0;
+    const showStrong = docRatio >= 1.5;
+    const showMod    = !showStrong && docRatio >= 1.25;
+    document.getElementById("doc-warn-mod").style.display    = showMod    ? "block" : "none";
+    document.getElementById("doc-warn-strong").style.display = showStrong ? "block" : "none";
   }
 
   // Manual-override visual cues + soft-clamp warning
@@ -1079,8 +1145,12 @@ function render() {
   if (radialLabelEl && ct.label) radialLabelEl.textContent = `(${ct.label})`;
 
   // Chip-evacuation rule: only applies where cut-type config says so (Pocket).
-  // Triggers when 4+ flutes AND axial DOC ≥ 1× tool dia.
-  const violatesFluteRule = !showDrill && ct.fluteRuleApplies && state.flutes >= 4 && r.docAxial >= state.diaIn;
+  // Triggers when 4+ flutes AND axial DOC ≥ 1× tool dia. Suppressed when a
+  // higher-severity general DOC warning (≥1.25× dia) is already firing.
+  const docRatioForFlute = state.diaIn > 0 && !showDrill ? r.docAxial / state.diaIn : 0;
+  const higherWarnActive = docRatioForFlute >= 1.25;
+  const violatesFluteRule = !showDrill && ct.fluteRuleApplies && state.flutes >= 4
+                            && r.docAxial >= state.diaIn && !higherWarnActive;
   document.getElementById("flute-rule").style.display = violatesFluteRule ? "block" : "none";
 
   // Auto-suggest RPM cap on dia change (unless user manually edited)
@@ -1228,6 +1298,21 @@ document.getElementById("r-rpm").addEventListener("input", e => {
   render();
 });
 
+// ---- Editable DOC inputs (Axial + Radial) ----
+// Stored internally in inches; convert from mm if needed.
+document.getElementById("r-doc-axial").addEventListener("input", e => {
+  const v = parseFloat(e.target.value);
+  if (!isFinite(v) || v <= 0) return;
+  state.docAxialOverride = isMetric() ? v / MM_PER_IN : v;
+  render();
+});
+document.getElementById("r-doc-radial").addEventListener("input", e => {
+  const v = parseFloat(e.target.value);
+  if (!isFinite(v) || v <= 0) return;
+  state.docRadialOverride = isMetric() ? v / MM_PER_IN : v;
+  render();
+});
+
 // Reset links → drop overrides and let the recommended numbers reassert.
 document.getElementById("r-ipt-reset").addEventListener("click", () => {
   state.iptOverride = null; state.iprOverride = null;
@@ -1237,10 +1322,18 @@ document.getElementById("r-rpm-reset").addEventListener("click", () => {
   state.rpmOverride = null;
   render();
 });
+document.getElementById("r-doc-axial-reset").addEventListener("click", () => {
+  state.docAxialOverride = null;
+  render();
+});
+document.getElementById("r-doc-radial-reset").addEventListener("click", () => {
+  state.docRadialOverride = null;
+  render();
+});
 
 // On blur, re-render so values normalize (e.g., "0.001" → "0.0010"). If the
 // user emptied the field, render() falls back to the current calculated value.
-["r-ipt", "r-feed", "r-rpm"].forEach(id => {
+["r-ipt", "r-feed", "r-rpm", "r-doc-axial", "r-doc-radial"].forEach(id => {
   document.getElementById(id).addEventListener("blur", () => render());
 });
 
