@@ -244,27 +244,18 @@
     padding: 10px 0;
     border-bottom: 1px solid var(--line);
   }
-  /* Block-level notes that live BELOW a result-row (not flex children) —
-     keeps the row's input + unit + tags together on one line, and stacks
-     multiple warnings vertically when several apply. Hidden by default;
-     render() toggles .active when at least one child note is visible. */
-  .row-notes { display: none; }
-  .row-notes.active {
-    display: block;
-    padding: 2px 0 10px;
-    border-bottom: 1px solid var(--line);
-  }
-  .row-notes .result-note {
-    position: static;
-    flex: none;
-    margin: 0 0 2px;
-  }
-  /* When a row is immediately followed by an active row-notes, suppress its
-     own bottom border + bottom padding so the row + notes feel like one
-     logical block (the orange text tucks right under the value). */
-  .result-row:has(+ .row-notes.active) {
-    border-bottom: none;
-    padding-bottom: 2px;
+  /* DOC value column: the right-side column of the axial DOC row gets a
+     dedicated wrapper so notes can stack BELOW the input on the right side
+     of the row (per Thad's spec — arrow pointing under the value, not
+     spanning the full row width). The doc-value-line wraps naturally to
+     match the unit-below-input pattern used by Spindle/Feed/FPT rows. */
+  .doc-value-col { text-align: right; }
+  .doc-note {
+    font-size: 11px;
+    line-height: 1.35;
+    margin-top: 4px;
+    text-align: left;
+    max-width: 260px;     /* prevents the note from making the row too tall on wide screens */
   }
   .result-row:last-child { border-bottom: none; }
   .result-label { font-size: 12px; color: var(--ink-soft); font-weight: 500; }
@@ -609,22 +600,22 @@
       <!-- Milling-only: axial Depth of Cut (radial + plunge moved to bottom of panel) -->
       <div class="result-row" id="row-doc-axial">
         <div class="result-label">Axial Depth of Cut<br><span style="font-weight:400;">(stepdown)</span></div>
-        <div>
-          <input type="number" id="r-doc-axial" class="result-value-input" min="0" step="0.005" inputmode="decimal" aria-label="Axial depth of cut">
-          <span class="result-unit" id="u-doc-axial">in</span>
-          <span class="manual-tag" id="r-doc-axial-tag">manual</span>
-          <button type="button" class="reset-link" id="r-doc-axial-reset" aria-label="Reset axial DOC to recommended">↺ recommended</button>
-        </div>
-      </div>
-      <div class="row-notes" id="row-doc-axial-notes">
-        <div class="result-note flute-rule" id="flute-rule" style="display:none; text-align:left; color:var(--warn); font-weight:500;">
-          A <strong>3-flute</strong> endmill is recommended for chip clearing at this depth.
-        </div>
-        <div class="result-note doc-warn-mod" id="doc-warn-mod" style="display:none; text-align:left; color:var(--warn); font-weight:600;">
-          ⚠ DOC is 1.25× tool diameter or more — well above recommended. Verify rigidity, listen for chatter, take a test cut first.
-        </div>
-        <div class="result-note doc-warn-strong" id="doc-warn-strong" style="display:none; text-align:left; color:var(--danger); font-weight:700;">
-          🛑 DOC is 1.5× tool diameter or more — very high break risk. Confirm chip evac, rigid setup, sharp tool. Test cut required.
+        <div class="doc-value-col">
+          <div class="doc-value-line">
+            <input type="number" id="r-doc-axial" class="result-value-input" min="0" step="0.005" inputmode="decimal" aria-label="Axial depth of cut">
+            <span class="result-unit" id="u-doc-axial">in</span>
+            <span class="manual-tag" id="r-doc-axial-tag">manual</span>
+            <button type="button" class="reset-link" id="r-doc-axial-reset" aria-label="Reset axial DOC to recommended">↺ recommended</button>
+          </div>
+          <div class="doc-note" id="flute-rule" style="display:none; color:var(--warn); font-weight:500;">
+            A <strong>3-flute</strong> endmill is recommended for chip clearing at this depth.
+          </div>
+          <div class="doc-note" id="doc-warn-mod" style="display:none; color:var(--warn); font-weight:600;">
+            ⚠ DOC is 1.25× tool diameter or more — well above recommended. Verify rigidity, listen for chatter, take a test cut first.
+          </div>
+          <div class="doc-note" id="doc-warn-strong" style="display:none; color:var(--danger); font-weight:700;">
+            🛑 DOC is 1.5× tool diameter or more — very high break risk. Confirm chip evac, rigid setup, sharp tool. Test cut required.
+          </div>
         </div>
       </div>
 
@@ -1169,14 +1160,6 @@ function render() {
   const violatesFluteRule = !showDrill && ct.fluteRuleApplies && state.flutes >= 4
                             && docRatioForFlute >= 0.75 && !higherWarnActive;
   document.getElementById("flute-rule").style.display = violatesFluteRule ? "block" : "none";
-
-  // Activate the row-notes wrapper iff at least one child note is visible. The
-  // CSS uses :has(+ .row-notes.active) to suppress the DOC row's bottom border
-  // so the warning tucks up flush with the row above.
-  const showStrongDoc = !showDrill && state.diaIn > 0 && r.docAxial / state.diaIn >= 1.5;
-  const showModDoc    = !showDrill && state.diaIn > 0 && !showStrongDoc && r.docAxial / state.diaIn >= 1.25;
-  const anyNoteVisible = violatesFluteRule || showModDoc || showStrongDoc;
-  document.getElementById("row-doc-axial-notes").classList.toggle("active", anyNoteVisible);
 
   // Auto-suggest RPM cap on dia change (unless user manually edited)
   if (!state.rpmCapManuallySet) {
