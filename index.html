@@ -1097,10 +1097,14 @@ function render() {
 function setupBtnGroup(groupId, dataAttr, stateKey, isNumeric) {
   const group = document.getElementById(groupId);
   group.addEventListener("click", (e) => {
-    if (e.target.tagName !== "BUTTON" || e.target.disabled) return;
+    // Use closest() so clicks on child <span>s (sub-labels) still register on
+    // the parent button — without this, the sub-text area is a dead zone and
+    // the toggle feels broken intermittently.
+    const btn = e.target.closest("button");
+    if (!btn || !group.contains(btn) || btn.disabled) return;
     [...group.children].forEach(b => b.classList.remove("active"));
-    e.target.classList.add("active");
-    const v = e.target.getAttribute(dataAttr);
+    btn.classList.add("active");
+    const v = btn.getAttribute(dataAttr);
     state[stateKey] = isNumeric ? Number(v) : v;
     clearFeedOverrides();   // any setup change reasserts the recommended numbers
     render();
@@ -1120,11 +1124,14 @@ setupBtnGroup("machine-group", "data-machine", "machineClass", false);
 (function setupUnitsToggle() {
   const group = document.getElementById("units-group");
   group.addEventListener("click", e => {
-    if (e.target.tagName !== "BUTTON") return;
-    const v = e.target.getAttribute("data-units");
+    // Use closest() so clicks on the descriptive sub-span (e.g. "in · IPM · SFM")
+    // still register on the parent button — that span was a dead zone before.
+    const btn = e.target.closest("button");
+    if (!btn || !group.contains(btn)) return;
+    const v = btn.getAttribute("data-units");
     if (v === state.units) return;
     [...group.children].forEach(b => b.classList.remove("active"));
-    e.target.classList.add("active");
+    btn.classList.add("active");
     state.units = v;
 
     // Reformat the two text inputs that aren't touched by render()
