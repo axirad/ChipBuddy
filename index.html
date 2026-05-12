@@ -246,9 +246,26 @@
   }
   /* Block-level notes that live BELOW a result-row (not flex children) —
      keeps the row's input + unit + tags together on one line, and stacks
-     multiple warnings vertically when several apply. */
-  .row-notes { display: block; margin-top: -4px; padding: 2px 0 8px; }
-  .row-notes .result-note { position: static; flex: none; }
+     multiple warnings vertically when several apply. Hidden by default;
+     render() toggles .active when at least one child note is visible. */
+  .row-notes { display: none; }
+  .row-notes.active {
+    display: block;
+    padding: 2px 0 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .row-notes .result-note {
+    position: static;
+    flex: none;
+    margin: 0 0 2px;
+  }
+  /* When a row is immediately followed by an active row-notes, suppress its
+     own bottom border + bottom padding so the row + notes feel like one
+     logical block (the orange text tucks right under the value). */
+  .result-row:has(+ .row-notes.active) {
+    border-bottom: none;
+    padding-bottom: 2px;
+  }
   .result-row:last-child { border-bottom: none; }
   .result-label { font-size: 12px; color: var(--ink-soft); font-weight: 500; }
   .result-value {
@@ -425,8 +442,8 @@
     <section class="panel">
       <h2>Units</h2>
       <div class="btn-group" id="units-group">
-        <button data-units="imperial" class="active">Imperial</button>
-        <button data-units="metric">Metric</button>
+        <button data-units="imperial" class="active">Inch</button>
+        <button data-units="metric">MM</button>
       </div>
     </section>
 
@@ -1152,6 +1169,14 @@ function render() {
   const violatesFluteRule = !showDrill && ct.fluteRuleApplies && state.flutes >= 4
                             && docRatioForFlute >= 0.75 && !higherWarnActive;
   document.getElementById("flute-rule").style.display = violatesFluteRule ? "block" : "none";
+
+  // Activate the row-notes wrapper iff at least one child note is visible. The
+  // CSS uses :has(+ .row-notes.active) to suppress the DOC row's bottom border
+  // so the warning tucks up flush with the row above.
+  const showStrongDoc = !showDrill && state.diaIn > 0 && r.docAxial / state.diaIn >= 1.5;
+  const showModDoc    = !showDrill && state.diaIn > 0 && !showStrongDoc && r.docAxial / state.diaIn >= 1.25;
+  const anyNoteVisible = violatesFluteRule || showModDoc || showStrongDoc;
+  document.getElementById("row-doc-axial-notes").classList.toggle("active", anyNoteVisible);
 
   // Auto-suggest RPM cap on dia change (unless user manually edited)
   if (!state.rpmCapManuallySet) {
