@@ -416,6 +416,15 @@
   <!-- ===== INPUTS ===== -->
   <div>
     <section class="panel">
+      <h2>Units</h2>
+      <div class="btn-group" id="units-group">
+        <button data-units="imperial" class="active">Imperial<span class="sub">in · IPM · SFM</span></button>
+        <button data-units="metric">Metric<span class="sub">mm · mm/min · SMM</span></button>
+      </div>
+      <div class="hint">Toggle the display. Recommendations don't change — only the units do.</div>
+    </section>
+
+    <section class="panel" style="margin-top:16px;">
       <h2>Workpiece</h2>
       <div class="field">
         <label for="material">Material</label>
@@ -435,9 +444,9 @@
     <section class="panel" style="margin-top:16px;">
       <h2>Tool</h2>
       <div class="field">
-        <label for="dia">Diameter (in)</label>
+        <label for="dia">Diameter (<span id="u-dia">in</span>)</label>
         <input type="number" id="dia" step="0.0625" min="0.015" value="0.25">
-        <div class="hint">Common: 0.0625, 0.125, 0.25, 0.375, 0.5, 0.75</div>
+        <div class="hint" id="dia-hint">Common: 0.0625, 0.125, 0.25, 0.375, 0.5, 0.75</div>
       </div>
       <div class="field">
         <label>Flutes</label>
@@ -461,7 +470,7 @@
         </div>
       </div>
       <div class="field">
-        <label for="flute-len">Flute Length (in)</label>
+        <label for="flute-len">Flute Length (<span id="u-flute-len">in</span>)</label>
         <input type="number" id="flute-len" step="0.05" min="0.05" value="0.75">
         <div class="hint">Caps the maximum axial DOC the tool can reach.</div>
       </div>
@@ -549,8 +558,8 @@
       <div class="result-row">
         <div class="result-label">Cutting Feed Rate</div>
         <div>
-          <input type="number" id="r-feed" class="result-value-input" min="0" step="0.1" inputmode="decimal" aria-label="Cutting feed rate, IPM">
-          <span class="result-unit">IPM</span>
+          <input type="number" id="r-feed" class="result-value-input" min="0" step="0.1" inputmode="decimal" aria-label="Cutting feed rate">
+          <span class="result-unit" id="u-feed">IPM</span>
           <span class="manual-tag" id="r-feed-tag">manual</span>
         </div>
       </div>
@@ -561,8 +570,8 @@
           <span style="font-weight:400;" id="r-chipload-sub">(Chip Load)</span>
         </div>
         <div>
-          <input type="number" id="r-ipt" class="result-value-input" min="0" step="0.0001" inputmode="decimal" aria-label="Feed per tooth, inches">
-          <span class="result-unit">in</span>
+          <input type="number" id="r-ipt" class="result-value-input" min="0" step="0.0001" inputmode="decimal" aria-label="Feed per tooth">
+          <span class="result-unit" id="u-ipt">in</span>
           <span class="manual-tag" id="r-ipt-tag">manual</span>
           <button type="button" class="reset-link" id="r-ipt-reset" aria-label="Reset feed per tooth to recommended">↺ recommended</button>
         </div>
@@ -570,14 +579,14 @@
       </div>
 
       <div class="result-row">
-        <div class="result-label">Surface Speed<br><span style="font-weight:400;">(SFM)</span></div>
-        <div><span class="result-value" id="r-sfm">—</span><span class="result-unit">ft/min</span></div>
+        <div class="result-label">Surface Speed<br><span style="font-weight:400;" id="u-sfm-sub">(SFM)</span></div>
+        <div><span class="result-value" id="r-sfm">—</span><span class="result-unit" id="u-sfm">ft/min</span></div>
       </div>
 
       <!-- Milling-only: axial Depth of Cut (radial + plunge moved to bottom of panel) -->
       <div class="result-row" id="row-doc-axial">
         <div class="result-label">Axial Depth of Cut<br><span style="font-weight:400;">(max stepdown)</span></div>
-        <div><span class="result-value" id="r-doc-axial">—</span><span class="result-unit">in</span></div>
+        <div><span class="result-value" id="r-doc-axial">—</span><span class="result-unit" id="u-doc-axial">in</span></div>
         <div class="result-note flute-rule" id="flute-rule" style="display:none; text-align:left; color:var(--danger); font-weight:600;">
           ⚠ DOC exceeds 1× tool diameter — switch to a <strong>2 or 3 flute</strong> endmill so chips can evacuate. 4+ flutes will pack and break the tool.
         </div>
@@ -586,25 +595,25 @@
       <!-- Drilling-only: peck pattern (G73 chip-break + G83 full-retract) -->
       <div class="result-row" id="row-peck" style="display:none;">
         <div class="result-label">Chip-Break Peck<br><span style="font-weight:400;">(forward each peck)</span></div>
-        <div><span class="result-value" id="r-peck">—</span><span class="result-unit">in</span></div>
+        <div><span class="result-value" id="r-peck">—</span><span class="result-unit" id="u-peck">in</span></div>
       </div>
       <div class="result-row" id="row-peck-retract" style="display:none;">
         <div class="result-label">Chip-Break Retract<br><span style="font-weight:400;">(snap chip)</span></div>
-        <div><span class="result-value" id="r-peck-retract">—</span><span class="result-unit">in</span></div>
+        <div><span class="result-value" id="r-peck-retract">—</span><span class="result-unit" id="u-peck-retract">in</span></div>
       </div>
       <div class="result-row" id="row-full-retract" style="display:none;">
         <div class="result-label">Full Retract Every<br><span style="font-weight:400;">(clear chips)</span></div>
-        <div><span class="result-value" id="r-full-retract">—</span><span class="result-unit">in</span></div>
+        <div><span class="result-value" id="r-full-retract">—</span><span class="result-unit" id="u-full-retract">in</span></div>
       </div>
 
       <div class="result-row" id="row-doc-radial">
         <div class="result-label">Radial Depth of Cut<br><span style="font-weight:400;" id="r-doc-radial-label">(optimal load)</span></div>
-        <div><span class="result-value" id="r-doc-radial">—</span><span class="result-unit">in</span></div>
+        <div><span class="result-value" id="r-doc-radial">—</span><span class="result-unit" id="u-doc-radial">in</span></div>
       </div>
 
       <div class="result-row" id="row-plunge">
         <div class="result-label">Plunge Feed Rate</div>
-        <div><span class="result-value" id="r-plunge">—</span><span class="result-unit">IPM</span></div>
+        <div><span class="result-value" id="r-plunge">—</span><span class="result-unit" id="u-plunge">IPM</span></div>
       </div>
 
       <div class="safety">
@@ -752,10 +761,50 @@ const AGG_EXPLAIN = [
 ];
 
 // ============================================================================
+// UNIT CONVERSION
+// ============================================================================
+// All state + math is INTERNALLY in inches / IPM / SFM. Only the display
+// converts. User-typed values are normalized back to inches at the input layer.
+const MM_PER_IN = 25.4;
+const M_PER_FT  = 0.3048;
+const isMetric = () => state.units === "metric";
+
+// Internal (in / IPM / SFM)  →  displayed value
+const dispLen  = v => isMetric() ? v * MM_PER_IN : v;      // inches → mm
+const dispFeed = v => isMetric() ? v * MM_PER_IN : v;      // IPM    → mm/min (same factor)
+const dispSurf = v => isMetric() ? v * M_PER_FT  : v;      // SFM    → SMM (m/min)
+
+// Display unit labels
+const labelLen     = () => isMetric() ? "mm"     : "in";
+const labelFeed    = () => isMetric() ? "mm/min" : "IPM";
+const labelSurf    = () => isMetric() ? "m/min"  : "ft/min";
+const labelSurfSub = () => isMetric() ? "(SMM)"  : "(SFM)";
+
+// Input spinner step sizes (per units mode)
+const stepDia      = () => isMetric() ? 0.5    : 0.0625;
+const stepFluteLen = () => isMetric() ? 1      : 0.05;
+const stepFeed     = () => isMetric() ? 1      : 0.1;
+const stepIptIpr   = () => isMetric() ? 0.001  : 0.0001;
+
+// Decimal places for display
+const placesDia      = () => isMetric() ? 2 : 4;
+const placesFluteLen = () => isMetric() ? 1 : 2;
+const placesLen      = () => isMetric() ? 2 : 3;     // DOC, peck values
+const placesFeed     = () => isMetric() ? 0 : 1;
+const placesIptIpr   = () => isMetric() ? 3 : 4;
+const placesSurf     = () => isMetric() ? 1 : 0;
+
+// Common-sizes hint for the Diameter field
+const diaHintCopy = () => isMetric()
+  ? "Common: 1.5, 3, 6, 10, 12, 20 mm"
+  : "Common: 0.0625, 0.125, 0.25, 0.375, 0.5, 0.75";
+
+// ============================================================================
 // STATE
 // ============================================================================
 const state = {
   material: "aluminum",   // locked in v1 — dropdown shows future options
+  units: "imperial",      // "imperial" | "metric" — display only; math is in inches
   diaIn: 0.25,
   flutes: 4,
   toolMat: "carbide",
@@ -894,6 +943,32 @@ function fmt(num, places) {
   return num.toFixed(places);
 }
 
+// Sync every unit-label span + input step attribute to the current state.units.
+// Safe to call every render — it only writes attributes, never touches values.
+function applyUnitLabels() {
+  // Labels next to result values
+  document.getElementById("u-feed").textContent       = labelFeed();
+  document.getElementById("u-ipt").textContent        = labelLen();
+  document.getElementById("u-sfm").textContent        = labelSurf();
+  document.getElementById("u-sfm-sub").textContent    = labelSurfSub();
+  document.getElementById("u-doc-axial").textContent  = labelLen();
+  document.getElementById("u-peck").textContent       = labelLen();
+  document.getElementById("u-peck-retract").textContent = labelLen();
+  document.getElementById("u-full-retract").textContent = labelLen();
+  document.getElementById("u-doc-radial").textContent = labelLen();
+  document.getElementById("u-plunge").textContent     = labelFeed();
+  // Labels next to input fields
+  document.getElementById("u-dia").textContent        = labelLen();
+  document.getElementById("u-flute-len").textContent  = labelLen();
+  // Diameter hint copy (common sizes list)
+  document.getElementById("dia-hint").textContent     = diaHintCopy();
+  // Input spinner steps
+  document.getElementById("dia").step       = stepDia();
+  document.getElementById("flute-len").step = stepFluteLen();
+  document.getElementById("r-feed").step    = stepFeed();
+  document.getElementById("r-ipt").step     = stepIptIpr();
+}
+
 // Update an <input>'s value but skip if the user is mid-edit (focused),
 // so we don't clobber what they're typing.
 function setInputValue(el, value) {
@@ -928,30 +1003,33 @@ function render() {
   document.getElementById("row-peck-retract").style.display  = showDrill ? "" : "none";
   document.getElementById("row-full-retract").style.display  = showDrill ? "" : "none";
 
+  // Refresh unit label spans + input step attributes in case units toggled
+  applyUnitLabels();
+
   setInputValue(document.getElementById("r-rpm"), r.rpm);
   // Cap RPM input upper bound at machine max so the spinner can't go past it
   document.getElementById("r-rpm").max = state.rpmMaxMachine;
-  document.getElementById("r-sfm").textContent = r.sfm;
+  document.getElementById("r-sfm").textContent = fmt(dispSurf(r.sfm), placesSurf());
 
   // Update editable inputs without clobbering whatever the user is currently typing
-  setInputValue(document.getElementById("r-feed"), fmt(r.feed, 1));
+  setInputValue(document.getElementById("r-feed"), fmt(dispFeed(r.feed), placesFeed()));
 
   // Chip-load row swaps label + value: drilling uses IPR (per rev), milling uses IPT (per tooth)
   const overridden = showDrill ? r.iprOverridden : r.iptOverridden;
   if (showDrill) {
     document.getElementById("r-chipload-main").textContent = "Feed per Rev";
-    document.getElementById("r-chipload-sub").textContent  = "(IPR)";
-    setInputValue(document.getElementById("r-ipt"), fmt(r.ipr, 4));
-    document.getElementById("r-peck").textContent          = fmt(r.chipBreakPeck, 3);
-    document.getElementById("r-peck-retract").textContent  = fmt(r.chipBreakRetract, 3);
-    document.getElementById("r-full-retract").textContent  = fmt(r.fullRetractInterval, 3);
+    document.getElementById("r-chipload-sub").textContent  = isMetric() ? "(per rev)" : "(IPR)";
+    setInputValue(document.getElementById("r-ipt"), fmt(dispLen(r.ipr), placesIptIpr()));
+    document.getElementById("r-peck").textContent          = fmt(dispLen(r.chipBreakPeck), placesLen());
+    document.getElementById("r-peck-retract").textContent  = fmt(dispLen(r.chipBreakRetract), placesLen());
+    document.getElementById("r-full-retract").textContent  = fmt(dispLen(r.fullRetractInterval), placesLen());
   } else {
     document.getElementById("r-chipload-main").textContent = "Feed per Tooth";
     document.getElementById("r-chipload-sub").textContent  = "(Chip Load)";
-    setInputValue(document.getElementById("r-ipt"), fmt(r.ipt, 4));
-    document.getElementById("r-plunge").textContent     = fmt(r.plunge, 1);
-    document.getElementById("r-doc-axial").textContent  = fmt(r.docAxial, 3);
-    document.getElementById("r-doc-radial").textContent = fmt(r.docRadial, 3);
+    setInputValue(document.getElementById("r-ipt"), fmt(dispLen(r.ipt), placesIptIpr()));
+    document.getElementById("r-plunge").textContent     = fmt(dispFeed(r.plunge), placesFeed());
+    document.getElementById("r-doc-axial").textContent  = fmt(dispLen(r.docAxial), placesLen());
+    document.getElementById("r-doc-radial").textContent = fmt(dispLen(r.docRadial), placesLen());
   }
 
   // Manual-override visual cues + soft-clamp warning
@@ -978,7 +1056,10 @@ function render() {
   } else if (r.rpmCapped) {
     rpmNote.style.display = "block";
     rpmNote.style.color = "var(--warn)";
-    rpmNote.textContent = `Capped from ideal ${r.rpmIdeal.toLocaleString()} RPM (${r.sfmIdeal} SFM target). Effective SFM ${r.sfm}.`;
+    const surfTag = isMetric() ? "SMM" : "SFM";
+    const surfIdealDisp = fmt(dispSurf(r.sfmIdeal), placesSurf());
+    const surfEffDisp   = fmt(dispSurf(r.sfm),      placesSurf());
+    rpmNote.textContent = `Capped from ideal ${r.rpmIdeal.toLocaleString()} RPM (${surfIdealDisp} ${surfTag} target). Effective ${surfTag} ${surfEffDisp}.`;
   } else {
     rpmNote.style.display = "none";
   }
@@ -1033,6 +1114,33 @@ setupBtnGroup("cuttype-group", "data-cuttype", "cutType",      false);
 setupBtnGroup("agg-row",       "data-agg",     "agg",          true);
 setupBtnGroup("machine-group", "data-machine", "machineClass", false);
 
+// Units toggle — bespoke handler (does NOT clear feed overrides, since the
+// internal IPT/IPR values in inches stay physically meaningful after a unit
+// switch; we just relabel and reformat the display).
+(function setupUnitsToggle() {
+  const group = document.getElementById("units-group");
+  group.addEventListener("click", e => {
+    if (e.target.tagName !== "BUTTON") return;
+    const v = e.target.getAttribute("data-units");
+    if (v === state.units) return;
+    [...group.children].forEach(b => b.classList.remove("active"));
+    e.target.classList.add("active");
+    state.units = v;
+
+    // Reformat the two text inputs that aren't touched by render()
+    // (their underlying state is in inches; the displayed value swaps).
+    const diaEl      = document.getElementById("dia");
+    const fluteLenEl = document.getElementById("flute-len");
+    diaEl.value      = dispLen(state.diaIn).toFixed(placesDia());
+    fluteLenEl.value = dispLen(state.fluteLen).toFixed(placesFluteLen());
+    // Update min attributes too so spinner respects new unit scale
+    diaEl.min      = isMetric() ? 0.4 : 0.015;
+    fluteLenEl.min = isMetric() ? 1   : 0.05;
+
+    render();
+  });
+})();
+
 document.getElementById("material").addEventListener("change", e => {
   state.material = e.target.value;
   // No table-switching needed today — only aluminum is selectable. When v2
@@ -1045,11 +1153,19 @@ document.getElementById("material").addEventListener("change", e => {
 
 document.getElementById("dia").addEventListener("input", e => {
   const v = Number(e.target.value);
-  if (v > 0) { state.diaIn = v; clearFeedOverrides(); render(); }
+  if (v > 0) {
+    // Convert display value → inches before storing
+    state.diaIn = isMetric() ? v / MM_PER_IN : v;
+    clearFeedOverrides();
+    render();
+  }
 });
 document.getElementById("flute-len").addEventListener("input", e => {
   const v = Number(e.target.value);
-  if (v > 0) { state.fluteLen = v; render(); }    // flute length doesn't affect feed math
+  if (v > 0) {
+    state.fluteLen = isMetric() ? v / MM_PER_IN : v;
+    render();    // flute length doesn't affect feed math
+  }
 });
 document.getElementById("rpm-max-machine").addEventListener("input", e => {
   const v = Number(e.target.value);
@@ -1072,23 +1188,27 @@ document.getElementById("rpm-cap-op").addEventListener("blur", e => {
 
 // ---- Editable Cutting Feed Rate ↔ Feed per Tooth/Rev ----
 // User edits FPT (or IPR for drilling): store as the canonical override.
+// Overrides are stored INTERNALLY in inches — convert from mm if needed.
 document.getElementById("r-ipt").addEventListener("input", e => {
   const v = parseFloat(e.target.value);
   if (!isFinite(v) || v <= 0) return;
+  const vIn = isMetric() ? v / MM_PER_IN : v;
   const { isDrill } = effectiveRpmAndPenalty();
-  if (isDrill) state.iprOverride = v; else state.iptOverride = v;
+  if (isDrill) state.iprOverride = vIn; else state.iptOverride = vIn;
   render();
 });
 // User edits Cutting Feed Rate: back-derive IPT (or IPR) and store as override.
+// Feed input may be in mm/min — convert to IPM first, then derive in inches.
 document.getElementById("r-feed").addEventListener("input", e => {
   const v = parseFloat(e.target.value);
   if (!isFinite(v) || v <= 0) return;
+  const vIpm = isMetric() ? v / MM_PER_IN : v;
   const { rpm, penalty, isDrill } = effectiveRpmAndPenalty();
   if (rpm <= 0) return;
   if (isDrill) {
-    state.iprOverride = v / (rpm * penalty);
+    state.iprOverride = vIpm / (rpm * penalty);
   } else {
-    state.iptOverride = v / (state.flutes * rpm * penalty);
+    state.iptOverride = vIpm / (state.flutes * rpm * penalty);
   }
   render();
 });
