@@ -235,33 +235,13 @@
   .agg-row button[data-agg="5"].active { background: var(--hot); border-color: var(--hot); }
   .agg-explain { font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
 
-  /* Operation (Roughing / Finishing) — its own top-level row, peer with Cut Type.
-     Two equal-width pills spanning the full field width. */
-  .cutmode-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-    margin-bottom: 4px;
-  }
-  .cutmode-row button {
-    padding: 10px 8px;
-    border: 1px solid var(--line);
-    background: #fff;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    line-height: 1.15;
-  }
-  .cutmode-row button:hover { border-color: var(--ink-soft); }
-  .cutmode-row button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
-  .cutmode-row button[data-cutmode="finishing"].active {
-    background: #4a6fa5;          /* polish-blue — distinct from agg colors */
-    border-color: #4a6fa5;
-  }
+  /* Operation (Roughing / Finishing) — uses the shared .btn-group styling
+     (green/white active state) for theme consistency with Cut Type, Flutes,
+     etc. .cutmode-explain is the small reminder under Aggressiveness when
+     Finishing is active. */
   .cutmode-explain {
     font-size: 11px;
-    color: #4a6fa5;
+    color: var(--accent);
     font-style: italic;
     margin-top: 2px;
   }
@@ -578,7 +558,7 @@
       </div>
       <div class="field" id="cutmode-field">
         <label>Operation</label>
-        <div class="cutmode-row" id="cutmode-row">
+        <div class="btn-group" id="cutmode-row">
           <button data-cutmode="roughing" class="active">Roughing</button>
           <button data-cutmode="finishing">Finishing</button>
         </div>
