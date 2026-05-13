@@ -714,11 +714,13 @@ const IPT_AT_QUARTER = {
 
 // DRILLING-specific tables. Drilling SFM is much lower than milling because
 // drills are fully engaged radially and have center-cutting geometry that
-// doesn't tolerate high surface speed. Thad's house default = 90 SFM (carbide
-// in aluminum) anchors the Conservative slot.
+// doesn't tolerate high surface speed.
+//   Carbide: 125 (Conservative) → 280 (Pro), equal-stepped (~40 SFM/step;
+//   top step is 35 because range 155 doesn't divide evenly by 4 into round-5s).
+//   HSS:     80 → 180 (Pro), perfectly equal step of 25 SFM.
 const SFM_TABLE_DRILL = {
-  carbide: [ 90, 130, 170, 220, 280],   // [agg=1..5]; Thad's 90 = Conservative
-  hss:     [ 60,  80, 110, 140, 180],
+  carbide: [125, 165, 205, 245, 280],   // [agg=1..5]
+  hss:     [ 80, 105, 130, 155, 180],   // [agg=1..5]
 };
 
 // DRILLING uses IPR (Inches Per Revolution) as the feed parameter, matching
