@@ -235,33 +235,23 @@
   .agg-row button[data-agg="5"].active { background: var(--hot); border-color: var(--hot); }
   .agg-explain { font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
 
-  /* Cut Mode (Roughing / Finishing) — inline pill group to the right of agg-row */
-  .agg-cutmode-row {
-    display: flex;
-    gap: 8px;
-    align-items: stretch;
-    margin-bottom: 6px;
-    flex-wrap: wrap;
-  }
-  .agg-cutmode-row .agg-row {
-    flex: 1 1 320px;
-    margin-bottom: 0;
-  }
+  /* Operation (Roughing / Finishing) — its own top-level row, peer with Cut Type.
+     Two equal-width pills spanning the full field width. */
   .cutmode-row {
-    display: flex;
-    gap: 4px;
-    flex-shrink: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 4px;
   }
   .cutmode-row button {
-    padding: 8px 10px;
+    padding: 10px 8px;
     border: 1px solid var(--line);
     background: #fff;
     border-radius: 6px;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     line-height: 1.15;
-    white-space: nowrap;
   }
   .cutmode-row button:hover { border-color: var(--ink-soft); }
   .cutmode-row button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
@@ -586,23 +576,25 @@
         </div>
         <div class="hint" id="cuttype-hint">Pocket / Adaptive: heavy chip removal. Facing: skim the top flat. Contour: finish the wall around a part. Drilling: peck cycle (G73 chip-break + G83 full-retract).</div>
       </div>
+      <div class="field" id="cutmode-field">
+        <label>Operation</label>
+        <div class="cutmode-row" id="cutmode-row">
+          <button data-cutmode="roughing" class="active">Roughing</button>
+          <button data-cutmode="finishing">Finishing</button>
+        </div>
+        <div class="hint">Roughing: stock removal — full numbers. Finishing: separate operation for surface quality — chip load × 0.5, RPM × 1.1 (capped at op cap), light stepover and stepdown.</div>
+      </div>
       <div class="field">
         <label>Aggressiveness</label>
-        <div class="agg-cutmode-row">
-          <div class="agg-row" id="agg-row">
-            <button data-agg="1" class="active">Conservative</button>
-            <button data-agg="2">Semi-Cons.</button>
-            <button data-agg="3">Somewhat<br>Aggressive</button>
-            <button data-agg="4">Aggressive</button>
-            <button data-agg="5">Pro</button>
-          </div>
-          <div class="cutmode-row" id="cutmode-row">
-            <button data-cutmode="roughing" class="active">Roughing</button>
-            <button data-cutmode="finishing">Finishing</button>
-          </div>
+        <div class="agg-row" id="agg-row">
+          <button data-agg="1" class="active">Conservative</button>
+          <button data-agg="2">Semi-Cons.</button>
+          <button data-agg="3">Somewhat<br>Aggressive</button>
+          <button data-agg="4">Aggressive</button>
+          <button data-agg="5">Pro</button>
         </div>
         <div class="agg-explain" id="agg-explain">Conservative: lower SFM, modest DOC, lots of margin. Best for new setups, unfamiliar tools, listening to your machine.</div>
-        <div class="cutmode-explain" id="cutmode-explain" style="display:none;">Finishing pass — chip load × 0.5, RPM × 1.1 (capped at op cap), light stepover and stepdown for clean surface.</div>
+        <div class="cutmode-explain" id="cutmode-explain" style="display:none;">Finishing operation active — values above already include chip × 0.5 and RPM × 1.1.</div>
         <div class="pro-warn" id="pro-warn"><strong>Pro:</strong> top of the recommended range. Numbers stay below 1× tool diameter — still verify on a test cut, listen for chatter, watch chip color.</div>
       </div>
     </section>
@@ -1239,10 +1231,10 @@ function render() {
   document.getElementById("agg-explain").textContent = AGG_EXPLAIN[state.agg - 1];
   document.getElementById("pro-warn").classList.toggle("show", state.agg === 5);
 
-  // Cut Mode (Roughing/Finishing) — hide entirely for drilling (N/A); show the
-  // finishing-pass hint only when Finishing is the active mode on a milling op.
-  const cutmodeRow = document.getElementById("cutmode-row");
-  cutmodeRow.style.display = showDrill ? "none" : "";
+  // Operation (Roughing/Finishing) — hide the whole field (label + pills + hint)
+  // for drilling since it doesn't apply. The finishing-active reminder under
+  // Aggressiveness only shows on milling + finishing.
+  document.getElementById("cutmode-field").style.display = showDrill ? "none" : "";
   document.getElementById("cutmode-explain").style.display =
     (!showDrill && state.cutMode === "finishing") ? "block" : "none";
 
