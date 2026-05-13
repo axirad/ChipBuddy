@@ -235,6 +235,47 @@
   .agg-row button[data-agg="5"].active { background: var(--hot); border-color: var(--hot); }
   .agg-explain { font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
 
+  /* Cut Mode (Roughing / Finishing) — inline pill group to the right of agg-row */
+  .agg-cutmode-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .agg-cutmode-row .agg-row {
+    flex: 1 1 320px;
+    margin-bottom: 0;
+  }
+  .cutmode-row {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .cutmode-row button {
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+  .cutmode-row button:hover { border-color: var(--ink-soft); }
+  .cutmode-row button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .cutmode-row button[data-cutmode="finishing"].active {
+    background: #4a6fa5;          /* polish-blue — distinct from agg colors */
+    border-color: #4a6fa5;
+  }
+  .cutmode-explain {
+    font-size: 11px;
+    color: #4a6fa5;
+    font-style: italic;
+    margin-top: 2px;
+  }
+
   /* Results */
   .results { position: sticky; top: 16px; }
   .result-row {
@@ -547,14 +588,21 @@
       </div>
       <div class="field">
         <label>Aggressiveness</label>
-        <div class="agg-row" id="agg-row">
-          <button data-agg="1" class="active">Conservative</button>
-          <button data-agg="2">Semi-Cons.</button>
-          <button data-agg="3">Somewhat<br>Aggressive</button>
-          <button data-agg="4">Aggressive</button>
-          <button data-agg="5">Pro</button>
+        <div class="agg-cutmode-row">
+          <div class="agg-row" id="agg-row">
+            <button data-agg="1" class="active">Conservative</button>
+            <button data-agg="2">Semi-Cons.</button>
+            <button data-agg="3">Somewhat<br>Aggressive</button>
+            <button data-agg="4">Aggressive</button>
+            <button data-agg="5">Pro</button>
+          </div>
+          <div class="cutmode-row" id="cutmode-row">
+            <button data-cutmode="roughing" class="active">Roughing</button>
+            <button data-cutmode="finishing">Finishing</button>
+          </div>
         </div>
         <div class="agg-explain" id="agg-explain">Conservative: lower SFM, modest DOC, lots of margin. Best for new setups, unfamiliar tools, listening to your machine.</div>
+        <div class="cutmode-explain" id="cutmode-explain" style="display:none;">Finishing pass — chip load × 0.5, RPM × 1.1 (capped at op cap), light stepover and stepdown for clean surface.</div>
         <div class="pro-warn" id="pro-warn"><strong>Pro:</strong> top of the recommended range. Numbers stay below 1× tool diameter — still verify on a test cut, listen for chatter, watch chip color.</div>
       </div>
     </section>
@@ -796,6 +844,22 @@ const MACHINE_CLASS_MULT = {
   light: 0.50,
 };
 
+// Finishing-mode modifier — applied on top of Cut Type + Aggressiveness when
+// state.cutMode === "finishing". Lighter chip + faster surface speed for a
+// clean shear; reduced DOC where appropriate to avoid rubbing.
+//   pocket:  shallow stepover + stepdown (classic wall-finish pass).
+//   facing:  axial drops to a 0.005" skim (absolute — % × dia is meaningless
+//            for a 2" face mill); radial stepover left to aggressiveness.
+//   contour: chip load + RPM only — radial is already finish-tight (5–20%×dia),
+//            so reducing further would just rub.
+//   drilling: N/A — calc() bypasses finishing for drilling regardless of state.
+const FINISH_MOD = {
+  pocket:  { iptMult: 0.5, rpmMult: 1.1, axialMult: 0.25, radialMult: 0.08 },
+  facing:  { iptMult: 0.5, rpmMult: 1.1, axialAbs:  0.005 },
+  contour: { iptMult: 0.5, rpmMult: 1.1 },
+  drilling: null,
+};
+
 const AGG_LABELS = ["Conservative", "Semi-Conservative", "Somewhat Aggressive", "Aggressive", "Pro"];
 const AGG_EXPLAIN = [
   "Conservative: lower SFM, modest DOC, lots of margin. Best for new setups, unfamiliar tools, listening to your machine.",
@@ -859,6 +923,7 @@ const state = {
   rpmCapOp: 6000,
   agg: 1,
   cutType: "pocket",
+  cutMode: "roughing",    // "roughing" (default) | "finishing" — finishing applies FINISH_MOD (lighter chip, faster RPM, shallower DOC)
   machineClass: "heavy",
   rpmCapManuallySet: false,
   iptOverride: null,      // user-edited Feed per Tooth (milling) — null = use recommended
@@ -898,13 +963,18 @@ function calc() {
   const aggIdx = state.agg - 1;
   const ct = CUT_TYPE[state.cutType];
   const isDrill = !!ct.isDrilling;
+  // Finishing modifier — only applies to milling ops with a config entry.
+  const finishMod = (!isDrill && state.cutMode === "finishing") ? FINISH_MOD[state.cutType] : null;
 
   // SFM table (drilling uses much lower values than milling)
   const sfmTable = isDrill ? SFM_TABLE_DRILL : SFM_TABLE;
   const sfm = sfmTable[state.toolMat][aggIdx];
 
-  // Spindle speed (same formula for both modes)
-  const rpmIdeal = sfm * 12 / (Math.PI * state.diaIn);
+  // Spindle speed (same formula for both modes). Finishing bumps the ideal
+  // SFM/RPM by rpmMult (typically ~1.1×) — the cap then clamps as normal, so
+  // the bump only takes effect if there's headroom below the op cap.
+  const rpmIdealRaw = sfm * 12 / (Math.PI * state.diaIn);
+  const rpmIdeal = finishMod ? rpmIdealRaw * finishMod.rpmMult : rpmIdealRaw;
   const rpmCap = Math.min(state.rpmCapOp, state.rpmMaxMachine);
   const rpmRec = Math.round(Math.min(rpmIdeal, rpmCap) / 50) * 50;   // recommended (capped + snap-50)
   // User can override the recommended RPM. Hard ceiling is the machine max
@@ -932,7 +1002,7 @@ function calc() {
       rpmIdeal: Math.round(rpmIdeal),
       rpmCapped, rpmCap, aboveOpCap,
       sfm: Math.round(sfmEffective),
-      sfmIdeal: sfm,
+      sfmIdeal: sfm,                      // drilling: no finishing modifier applies
       ipr,                                // primary drilling feed parameter (used)
       iprRec,                             // recommended (for soft-clamp + reset)
       iprOverridden: state.iprOverride !== null,
@@ -944,7 +1014,10 @@ function calc() {
   }
 
   // ---- Milling: feed = IPT × flutes × RPM ----
-  const iptRef = IPT_AT_QUARTER[state.toolMat][aggIdx] * mcMult;
+  // Finishing scales chip load by iptMult (typically 0.5×) BEFORE dia-scaling
+  // so the sub-linear iptForDia() curve still applies sensibly.
+  const iptMod = finishMod ? finishMod.iptMult : 1.0;
+  const iptRef = IPT_AT_QUARTER[state.toolMat][aggIdx] * mcMult * iptMod;
   const iptRec = iptForDia(iptRef, state.diaIn);
   const ipt = (state.iptOverride !== null) ? state.iptOverride : iptRec;
   const feedRaw = ipt * state.flutes * rpm;
@@ -952,14 +1025,22 @@ function calc() {
   const plunge = feed * 0.40;
 
   // ---- Milling DOC (cut-type specific) ----
+  // Finishing overrides the agg-indexed DOC multipliers with fixed shallow
+  // values where defined (pocket: 25% × dia stepdown + 8% × dia stepover;
+  // facing: 0.005" skim, radial stepover left to agg; contour: unchanged).
   const rigidDoc = RIGID_PENALTY[state.rigidity].doc;
   let docAxialRec;
-  if (ct.axialAbs) {
-    docAxialRec = ct.axialAbs[aggIdx] * rigidDoc * mcMult;        // Facing
+  if (finishMod && finishMod.axialAbs !== undefined) {
+    docAxialRec = finishMod.axialAbs * rigidDoc * mcMult;                              // Facing-finishing skim
+  } else if (finishMod && finishMod.axialMult !== undefined) {
+    docAxialRec = state.diaIn * finishMod.axialMult * rigidDoc * mcMult;               // Pocket-finishing
+  } else if (ct.axialAbs) {
+    docAxialRec = ct.axialAbs[aggIdx] * rigidDoc * mcMult;                             // Facing (roughing)
   } else {
-    docAxialRec = state.diaIn * ct.axialMult[aggIdx] * rigidDoc * mcMult;  // Pocket / Contour
+    docAxialRec = state.diaIn * ct.axialMult[aggIdx] * rigidDoc * mcMult;              // Pocket / Contour (roughing or contour-finishing)
   }
-  const docRadialRec = state.diaIn * ct.radialMult[aggIdx] * rigidDoc * mcMult;
+  const radialMultUsed = (finishMod && finishMod.radialMult !== undefined) ? finishMod.radialMult : ct.radialMult[aggIdx];
+  const docRadialRec = state.diaIn * radialMultUsed * rigidDoc * mcMult;
 
   // Honor user overrides (entered via the editable DOC inputs).
   let docAxial  = (state.docAxialOverride  !== null) ? state.docAxialOverride  : docAxialRec;
@@ -977,7 +1058,7 @@ function calc() {
     rpmIdeal: Math.round(rpmIdeal),
     rpmCapped, rpmCap, aboveOpCap,
     sfm: Math.round(sfmEffective),
-    sfmIdeal: sfm,
+    sfmIdeal: finishMod ? sfm * finishMod.rpmMult : sfm,   // reflects finishing bump so the "capped from ideal" advisory reconciles with rpmIdeal
     ipt,                                  // used (override or recommended)
     iptRec,                               // recommended (for soft-clamp + reset)
     iptOverridden: state.iptOverride !== null,
@@ -1046,7 +1127,10 @@ function effectiveRpmAndPenalty() {
   const aggIdx = state.agg - 1;
   const sfmTable = isDrill ? SFM_TABLE_DRILL : SFM_TABLE;
   const sfm = sfmTable[state.toolMat][aggIdx];
-  const rpmIdeal = sfm * 12 / (Math.PI * state.diaIn);
+  // Mirror calc()'s finishing RPM bump so the feed↔FPT linkage uses the same RPM as the result panel.
+  const finishMod = (!isDrill && state.cutMode === "finishing") ? FINISH_MOD[state.cutType] : null;
+  const rpmIdealRaw = sfm * 12 / (Math.PI * state.diaIn);
+  const rpmIdeal = finishMod ? rpmIdealRaw * finishMod.rpmMult : rpmIdealRaw;
   const rpmCap = Math.min(state.rpmCapOp, state.rpmMaxMachine);
   const rpm = (state.rpmOverride !== null) ? state.rpmOverride : Math.min(rpmIdeal, rpmCap);
   return { rpm, penalty: RIGID_PENALTY[state.rigidity].feed, isDrill };
@@ -1155,6 +1239,13 @@ function render() {
   document.getElementById("agg-explain").textContent = AGG_EXPLAIN[state.agg - 1];
   document.getElementById("pro-warn").classList.toggle("show", state.agg === 5);
 
+  // Cut Mode (Roughing/Finishing) — hide entirely for drilling (N/A); show the
+  // finishing-pass hint only when Finishing is the active mode on a milling op.
+  const cutmodeRow = document.getElementById("cutmode-row");
+  cutmodeRow.style.display = showDrill ? "none" : "";
+  document.getElementById("cutmode-explain").style.display =
+    (!showDrill && state.cutMode === "finishing") ? "block" : "none";
+
   // Update Radial Depth of Cut sub-label (varies by cut type: "optimal load" vs "stepover")
   const ct = CUT_TYPE[state.cutType];
   const radialLabelEl = document.getElementById("r-doc-radial-label");
@@ -1210,6 +1301,7 @@ setupBtnGroup("toolmat-group", "data-toolmat", "toolMat",      false);
 setupBtnGroup("rigid-group",   "data-rigid",   "rigidity",     true);
 setupBtnGroup("agg-row",       "data-agg",     "agg",          true);
 setupBtnGroup("machine-group", "data-machine", "machineClass", false);
+setupBtnGroup("cutmode-row",   "data-cutmode", "cutMode",      false);
 
 // Cut-type group has a sanity gate on the Facing button: face mills are
 // typically 2–4", so switching to Facing while the dia is < 2" is almost

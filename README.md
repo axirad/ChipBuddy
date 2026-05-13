@@ -15,6 +15,14 @@ Punch in your tool, your machine's max RPM, and how rigid your setup feels. Slid
 - **Contour** — finish the wall around a part
 - **Drilling** — peck cycle (G73 chip-break + G83 full-retract)
 
+## Roughing vs Finishing
+
+Toggle next to the Aggressiveness row (milling only). **Roughing** is the default — full numbers for stock removal. **Finishing** halves chip load, bumps RPM 10% (capped at your op cap), and tightens stepover/stepdown for a clean surface:
+
+- Pocket: stepover → 8% × dia, stepdown → 25% × dia
+- Facing: 0.005" skim pass
+- Contour: chip load + RPM only (radial is already finish-tight)
+
 ## Safety rules baked in
 
 - Spindle never recommended above your machine's max
