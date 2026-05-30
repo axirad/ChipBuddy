@@ -715,14 +715,13 @@ const IPT_AT_QUARTER = {
 // DRILLING-specific tables. Drilling SFM is much lower than milling because
 // drills are fully engaged radially and have center-cutting geometry that
 // doesn't tolerate high surface speed.
-//   Carbide: 120 (Conservative) → 300 (Pro). Aggressive and Pro are both 300 —
-//            300 SFM is the practical ceiling for drilling aluminum on Thad's
-//            machine; Pro doesn't push beyond it.
-//   HSS:     125 → 280 (Pro), equal-stepped (~40 SFM/step; top step is 35
-//            because range 155 doesn't divide evenly by 4 into round-5s).
+//   Carbide: 200 (Conservative) → 500 (Pro), perfectly equal step of 75 SFM.
+//   HSS:     120 (Conservative) → 300 (Pro). Aggressive and Pro are both 300 —
+//            300 SFM is the practical ceiling for HSS drilling aluminum on
+//            Thad's machine; Pro doesn't push beyond Aggressive.
 const SFM_TABLE_DRILL = {
-  carbide: [120, 160, 220, 300, 300],   // [agg=1..5]
-  hss:     [125, 165, 205, 245, 280],   // [agg=1..5]
+  carbide: [200, 275, 350, 425, 500],   // [agg=1..5]
+  hss:     [120, 160, 220, 300, 300],   // [agg=1..5]
 };
 
 // DRILLING uses IPR (Inches Per Revolution) as the feed parameter, matching
